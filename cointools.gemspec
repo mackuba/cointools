@@ -16,5 +16,5 @@ Gem::Specification.new do |spec|
   spec.files         = ['VSPL-LICENSE.txt', 'README.md'] + Dir['bin/*'] + Dir['lib/**/*']
 
   spec.bindir        = "bin"
-  spec.executables   = Dir['bin/*'].map { |f| File.basename(f) }
+  spec.executables   = Dir['bin/*'].map { |f| File.basename(f) } - ['console', 'setup']
 end
