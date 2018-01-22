@@ -25,6 +25,9 @@ module CoinTools
       end
     end
 
+    class BadRequestException < Exception
+    end
+
     def get_price(exchange, market, time = nil)
       unixtime = time.to_i
       url = URI("#{BASE_URL}/#{exchange}/#{market}/ohlc?after=#{unixtime}&periods=300")
@@ -42,12 +45,11 @@ module CoinTools
         timestamp, o, h, l, c, volume = json['result']['300'].detect { |r| r[0] >= unixtime }
         actual_time = Time.at(timestamp)
         return DataPoint.new(o, actual_time)
+      when Net::HTTPBadRequest
+        raise BadRequestException.new(response)
       else
         raise Exception.new(response)
       end
-
-    # rescue OpenURI::HTTPError => e
-      # puts "Connection error or coin not found: #{e}"
     end
   end
 end
