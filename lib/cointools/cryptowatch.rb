@@ -16,7 +16,7 @@ module CoinTools
       end
     end
 
-    class Exception < StandardError
+    class InvalidResponseException < StandardError
       attr_reader :response
 
       def initialize(response)
@@ -25,7 +25,10 @@ module CoinTools
       end
     end
 
-    class BadRequestException < Exception
+    class BadRequestException < InvalidResponseException
+    end
+
+    class NoDataException < StandardError
     end
 
     def get_price(exchange, market, time = nil)
@@ -42,7 +45,10 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
-        timestamp, o, h, l, c, volume = json['result']['300'].detect { |r| r[0] >= unixtime }
+        records = json['result']['300']
+        raise NoDataException.new('No data found for a given time') if records.nil?
+
+        timestamp, o, h, l, c, volume = records.detect { |r| r[0] >= unixtime }
         actual_time = Time.at(timestamp)
         return DataPoint.new(o, actual_time)
       when Net::HTTPBadRequest

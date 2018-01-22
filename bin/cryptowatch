@@ -31,6 +31,9 @@ begin
     puts result.price
   end
 rescue CoinTools::Cryptowatch::BadRequestException => e
-  $stderr.puts "Incorrect exchange or market name: #{e}"
+  $stderr.puts "Error: Incorrect exchange or market name: #{e}"
   exit 3
+rescue CoinTools::Cryptowatch::NoDataException => e
+  $stderr.puts "Error: #{e}: data not ready yet or a future date was passed"
+  exit 4
 end
