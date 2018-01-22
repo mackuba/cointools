@@ -17,11 +17,11 @@ date = Time.parse(ARGV[2])
 verbose = ARGV[3] == '-v' || ARGV[3] == '--verbose'
 
 if date.year < 2008
-  puts "Bad date: #{date}"
+  $stderr.puts "Bad date: #{date}"
   exit 2
 end
 
-# begin
+begin
   result = CoinTools::Cryptowatch.new.get_price(exchange, market, date)
 
   if verbose
@@ -30,6 +30,7 @@ end
   else
     puts result.price
   end
-# rescue OpenURI::HTTPError => e
-  # puts "Connection error or coin not found: #{e}"
-# end
+rescue CoinTools::Cryptowatch::BadRequestException => e
+  $stderr.puts "Incorrect exchange or market name: #{e}"
+  exit 3
+end
