@@ -20,6 +20,7 @@ module CoinTools
       attr_reader :response
 
       def initialize(response)
+        super("#{response.code} #{response.message}")
         @response = response
       end
     end
