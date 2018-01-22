@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'open-uri'
+require 'time'
+
+$headers = { 'User-Agent' => 'coinat 0.2' }
+BASE_URL = "https://api.cryptowat.ch/markets"
+
+if ARGV.length != 3
+  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> <date>"
+  puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
+  exit 1
+end
+
+exchange = ARGV[0].downcase
+market = ARGV[1].downcase
+date = Time.parse(ARGV[2])
+
+if date.year < 2008
+  puts "Bad date: #{date}"
+  exit 2
+end
+
+begin
+  time = date.to_i
+  data = open("#{BASE_URL}/#{exchange}/#{market}/ohlc?after=#{time}&periods=300", $headers).read
+  json = JSON.load(data)
+  timestamp, o, h, l, c, volume = json['result']['300'].detect { |r| r[0] >= time }
+  actual_time = Time.at(timestamp)
+
+  puts
+  puts "#{exchange}:#{market} @ #{actual_time} ==> #{o}"
+rescue OpenURI::HTTPError => e
+  puts "Connection error or coin not found: #{e}"
+end
