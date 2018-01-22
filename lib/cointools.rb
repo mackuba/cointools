@@ -1,5 +1,5 @@
 require "cointools/version"
 
-module Cointools
+module CoinTools
   # Your code goes here...
 end

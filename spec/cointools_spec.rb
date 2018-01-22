@@ -1,7 +1,7 @@
 require "spec_helper"
 
-describe Cointools do
+describe CoinTools do
   it "has a version number" do
-    expect(Cointools::VERSION).not_to be nil
+    expect(CoinTools::VERSION).not_to be nil
   end
 end

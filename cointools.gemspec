@@ -5,7 +5,7 @@ require 'cointools/version'
 
 Gem::Specification.new do |spec|
   spec.name          = "cointools"
-  spec.version       = Cointools::VERSION
+  spec.version       = CoinTools::VERSION
   spec.authors       = ["Jakub Suder"]
   spec.email         = ["jakub.suder@gmail.com"]
 
