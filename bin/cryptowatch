@@ -1,11 +1,9 @@
 #!/usr/bin/env ruby
 
-require 'json'
-require 'open-uri'
-require 'time'
+require 'bundler/setup'
+require 'cointools'
 
-$headers = { 'User-Agent' => 'coinat 0.2' }
-BASE_URL = "https://api.cryptowat.ch/markets"
+require 'time'
 
 if ARGV.length != 3
   puts "Usage: #{$PROGRAM_NAME} <exchange> <market> <date>"
@@ -23,14 +21,10 @@ if date.year < 2008
 end
 
 begin
-  time = date.to_i
-  data = open("#{BASE_URL}/#{exchange}/#{market}/ohlc?after=#{time}&periods=300", $headers).read
-  json = JSON.load(data)
-  timestamp, o, h, l, c, volume = json['result']['300'].detect { |r| r[0] >= time }
-  actual_time = Time.at(timestamp)
+  result = CoinTools::Cryptowatch.new.get_price(exchange, market, date)
 
   puts
-  puts "#{exchange}:#{market} @ #{actual_time} ==> #{o}"
+  puts "#{exchange}:#{market} @ #{result.time} ==> #{result.price}"
 rescue OpenURI::HTTPError => e
   puts "Connection error or coin not found: #{e}"
 end

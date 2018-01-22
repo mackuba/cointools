@@ -1,5 +1,5 @@
-require "cointools/version"
+require 'cointools/cryptowatch'
+require 'cointools/version'
 
 module CoinTools
-  # Your code goes here...
 end
