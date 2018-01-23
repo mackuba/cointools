@@ -5,16 +5,16 @@ require 'cointools'
 
 require 'time'
 
-if ARGV.length < 3
-  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> <date> [-v/--verbose]"
+if ARGV.length < 2
+  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
   exit 1
 end
 
 exchange = ARGV[0].downcase
 market = ARGV[1].downcase
-date = Time.parse(ARGV[2])
-verbose = ARGV[3] == '-v' || ARGV[3] == '--verbose'
+date = Time.parse(ARGV[2]) if ARGV[2] && !ARGV[2].start_with?('-')
+verbose = ARGV.last == '-v' || ARGV.last == '--verbose'
 
 begin
   result = CoinTools::Cryptowatch.new.get_price(exchange, market, date)

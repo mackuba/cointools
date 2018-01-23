@@ -4,7 +4,7 @@ require 'json'
 
 module CoinTools
   class Cryptowatch
-    BASE_URL = "https://api.cryptowat.ch/markets"
+    BASE_URL = "https://api.cryptowat.ch"
     USER_AGENT = "cointools/#{CoinTools::VERSION}"
 
     class DataPoint
@@ -35,18 +35,15 @@ module CoinTools
     end
 
     def get_price(exchange, market, time = nil)
+      return get_current_price(exchange, market) if time.nil?
+
       (time <= Time.now) or raise InvalidDateException.new('Future date was passed')
       (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
 
       unixtime = time.to_i
-      url = URI("#{BASE_URL}/#{exchange}/#{market}/ohlc?after=#{unixtime}&periods=300")
+      url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/ohlc?after=#{unixtime}&periods=300")
 
-      response = Net::HTTP.start(url.host, url.port, use_ssl: true) do |http|
-        request = Net::HTTP::Get.new(url)
-        request['User-Agent'] = USER_AGENT
-
-        http.request(request)
-      end
+      response = make_request(url)
 
       case response
       when Net::HTTPSuccess
@@ -61,6 +58,36 @@ module CoinTools
         raise BadRequestException.new(response)
       else
         raise Exception.new(response)
+      end
+    end
+
+    def get_current_price(exchange, market)
+      url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/price")
+
+      response = make_request(url)
+
+      case response
+      when Net::HTTPSuccess
+        json = JSON.load(response.body)
+        price = json['result']['price']
+
+        return DataPoint.new(price, Time.now)
+      when Net::HTTPBadRequest
+        raise BadRequestException.new(response)
+      else
+        raise Exception.new(response)
+      end
+    end
+
+
+    private
+
+    def make_request(url)
+      Net::HTTP.start(url.host, url.port, use_ssl: true) do |http|
+        request = Net::HTTP::Get.new(url)
+        request['User-Agent'] = USER_AGENT
+
+        http.request(request)
       end
     end
   end
