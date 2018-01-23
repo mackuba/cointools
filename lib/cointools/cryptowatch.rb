@@ -7,14 +7,7 @@ module CoinTools
     BASE_URL = "https://api.cryptowat.ch"
     USER_AGENT = "cointools/#{CoinTools::VERSION}"
 
-    class DataPoint
-      attr_reader :price, :time
-
-      def initialize(price, time)
-        @price = price
-        @time = time
-      end
-    end
+    DataPoint = Struct.new(:price, :time)
 
     class InvalidResponseException < StandardError
       attr_reader :response
