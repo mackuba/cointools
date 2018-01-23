@@ -16,11 +16,6 @@ market = ARGV[1].downcase
 date = Time.parse(ARGV[2])
 verbose = ARGV[3] == '-v' || ARGV[3] == '--verbose'
 
-if date.year < 2008
-  $stderr.puts "Bad date: #{date}"
-  exit 2
-end
-
 begin
   result = CoinTools::Cryptowatch.new.get_price(exchange, market, date)
 
@@ -30,10 +25,13 @@ begin
   else
     puts result.price
   end
+rescue CoinTools::Cryptowatch::InvalidDateException => e
+  $stderr.puts "Error: #{e}"
+  exit 2
 rescue CoinTools::Cryptowatch::BadRequestException => e
   $stderr.puts "Error: Incorrect exchange or market name: #{e}"
   exit 3
 rescue CoinTools::Cryptowatch::NoDataException => e
-  $stderr.puts "Error: #{e}: data not ready yet or a future date was passed"
+  $stderr.puts "Error: #{e}: data not ready yet"
   exit 4
 end

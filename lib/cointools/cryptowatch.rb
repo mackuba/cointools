@@ -31,7 +31,13 @@ module CoinTools
     class NoDataException < StandardError
     end
 
+    class InvalidDateException < StandardError
+    end
+
     def get_price(exchange, market, time = nil)
+      (time <= Time.now) or raise InvalidDateException.new('Future date was passed')
+      (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
+
       unixtime = time.to_i
       url = URI("#{BASE_URL}/#{exchange}/#{market}/ohlc?after=#{unixtime}&periods=300")
 
