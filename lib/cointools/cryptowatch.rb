@@ -54,17 +54,19 @@ module CoinTools
       (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
 
       unixtime = time.to_i
-      url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/ohlc?after=#{unixtime}&periods=300")
+      current_time = Time.now.to_i
+      url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/ohlc?after=#{unixtime}")
 
       response = make_request(url)
 
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
-        records = json['result']['300']
-        raise NoDataException.new('No data found for a given time') if records.nil?
+        data = json['result']
 
-        timestamp, o, h, l, c, volume = records.detect { |r| r[0] >= unixtime }
+        timestamp, o, h, l, c, volume = best_matching_record(data, unixtime, current_time)
+        raise NoDataException.new('No data found for a given time') if timestamp.nil?
+
         actual_time = Time.at(timestamp)
         return DataPoint.new(o, actual_time)
       when Net::HTTPBadRequest
@@ -102,6 +104,30 @@ module CoinTools
 
         http.request(request)
       end
+    end
+
+    def best_matching_record(data, unixtime, request_time)
+      candidates = []
+
+      data.keys.sort_by { |k| k.to_i }.each do |k|
+        records = data[k]
+        previous = nil
+
+        records.each do |record|
+          timestamp, o, h, l, c, volume = record
+
+          if timestamp >= unixtime
+            candidates.push(record) unless timestamp > request_time
+            break
+          else
+            previous = record
+          end
+        end
+
+        candidates.push(previous) if previous
+      end
+
+      candidates.sort_by { |record| (record[0] - unixtime).abs }.first
     end
 
     def get_exchanges
