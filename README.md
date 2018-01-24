@@ -74,14 +74,21 @@ coinmcap -s powr
 
 However, this operation needs to download a complete ticker for all currencies and scan through the list, so it's recommended to use the name as in the example above.
 
+You can also use the `-b` or `--btc-price` flag to request a price in BTC instead of USD:
+
+```
+coinmcap power-ledger -b
+```
+
 In code:
 
 ```ruby
 require 'cointools'  # or 'cointools/coinmarketcap'
 cmc = CoinTools::CoinMarketCap.new
 
-result = cryptowatch.get_price('litecoin')
-puts "LTC: #{result.price}"
+ltcusd = cryptowatch.get_price('litecoin')
+ltcbtc = cryptowatch.get_price('litecoin', true)
+puts "LTC: #{ltcusd.price} USD / #{ltcbtc.price} BTC"
 
 result = cryptowatch.get_price_by_symbol('xmr')
 puts "XMR: #{result.price}"
