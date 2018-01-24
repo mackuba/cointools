@@ -1,41 +1,55 @@
 # Cointools
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/cointools`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+This is a collection of Ruby scripts and library classes that let you check cryptocurrency prices on various services (currently Cryptowatch).
 
 ## Installation
 
-Add this line to your application's Gemfile:
+To use the scripts from the command line, install the gem:
+
+```
+gem install cointools
+```
+
+To use the code as a library, add it to your Gemfile:
 
 ```ruby
 gem 'cointools'
 ```
 
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install cointools
-
 ## Usage
 
-TODO: Write usage instructions here
+### [Cryptowatch](https://cryptowat.ch)
 
-## Development
+To check past price of a given coin on a chosen exchange, pass the exchange and market name and a properly formatted timestamp:
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```
+cryptowatch bitfinex btcusd "2017-12-17 13:00"
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+To check the current price, skip the timestamp:
 
-## Contributing
+```
+cryptowatch bitfinex btcusd
+```
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/cointools.
+In code:
+
+```ruby
+require 'cointools'
+cryptowatch = CoinTools::Cryptowatch.new
+
+result = cryptowatch.get_price('kraken', 'btceur', Time.now - 86400)
+puts "Yesterday: #{result.price}"
+
+result = cryptowatch.get_current_price('kraken', 'btceur')
+puts "Today: #{result.price}"
+```
+
+The result object contains the requested price and (for historical prices) the actual timestamp of the found price, which might slightly differ from the timestamp passed in the argument (the earlier the date, the less precise the result).
 
 
-## License
+## Credits & contributing
 
-The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
+Copyright © 2018 [Kuba Suder](https://mackuba.eu). Licensed under [Very Simple Public License](https://github.com/mackuba/cointools/blob/master/VSPL-LICENSE.txt), my custom license that's basically a simplified version of the MIT license that fits in 3 lines.
 
+If you'd like to help me extend the scripts with some additional features or add support for new services, [send me a pull request](https://github.com/mackuba/cointools/pulls).
