@@ -8,7 +8,7 @@ require 'time'
 
 verbose = false
 
-OptionParser.new { |opts|
+OptionParser.new do |opts|
   opts.on('-v', '--verbose') { verbose = true }
 
   opts.on('--list-exchanges') do
@@ -25,7 +25,9 @@ OptionParser.new { |opts|
       exit 3
     end
   end
-}.parse!
+
+  opts.parse!
+end
 
 if ARGV.length < 2 || ARGV.length > 3
   puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose]"
