@@ -50,6 +50,29 @@ module CoinTools
       end
     end
 
+    def get_price_by_symbol(coin_symbol)
+      url = URI("#{BASE_URL}/v1/ticker/?limit=0")
+      symbol = coin_symbol.downcase
+
+      response = make_request(url)
+
+      case response
+      when Net::HTTPSuccess
+        json = JSON.load(response.body)
+        record = json.detect { |r| r['symbol'].downcase == symbol }
+        raise NoDataException.new('No coin found with given symbol') if record.nil?
+
+        price = record['price_usd'].to_f
+        timestamp = Time.at(record['last_updated'].to_i)
+
+        return DataPoint.new(price, timestamp)
+      when Net::HTTPBadRequest
+        raise BadRequestException.new(response)
+      else
+        raise Exception.new(response)
+      end
+    end
+
 
     private
 

@@ -10,12 +10,13 @@ def print_help
   puts "Usage: #{$PROGRAM_NAME} <coin_name> [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} litecoin"
   puts
-  puts "* To look up the currency by symbol instead of name:"
+  puts "* To look up the currency by symbol instead of name (slower, downloads more data):"
   puts "       #{$PROGRAM_NAME} -s/--symbol <symbol>"
   puts " e.g.: #{$PROGRAM_NAME} -s LTC"
 end
 
 verbose = false
+symbol = nil
 
 OptionParser.new do |opts|
   opts.on('-v', '--verbose') { verbose = true }
@@ -25,25 +26,29 @@ OptionParser.new do |opts|
     exit 0
   end
 
-  opts.on('-sSYMBOL', '--symbol SYMBOL') do |symbol|
-    # TODO
-  end
+  opts.on('-sSYMBOL', '--symbol SYMBOL') { |s| symbol = s }
 
   opts.parse!
 end
 
-if ARGV.length != 1
-  print_help
-  exit 1
+unless symbol
+  if ARGV.length != 1
+    print_help
+    exit 1
+  end
+
+  coin_name = ARGV[0].downcase
 end
 
-coin_name = ARGV[0].downcase
-
 begin
-  result = CoinTools::CoinMarketCap.new.get_price(coin_name)
+  if symbol
+    result = CoinTools::CoinMarketCap.new.get_price_by_symbol(symbol)
+  else
+    result = CoinTools::CoinMarketCap.new.get_price(coin_name)
+  end
 
   if verbose
-    puts "#{coin_name} @ #{result.time || Time.now} ==> #{result.price}"
+    puts "#{symbol&.upcase || coin_name} @ #{result.time || Time.now} ==> #{result.price}"
     puts
   else
     puts result.price
@@ -51,4 +56,7 @@ begin
 rescue CoinTools::Cryptowatch::BadRequestException => e
   $stderr.puts "Error: Incorrect coin name: #{e}"
   exit 2
+rescue CoinTools::Cryptowatch::NoDataException => e
+  $stderr.puts "Error: #{e}"
+  exit 3
 end
