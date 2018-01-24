@@ -32,17 +32,29 @@ To check the current price, skip the timestamp:
 cryptowatch bitfinex btcusd
 ```
 
+You can fetch a list of available exchanges and markets using these commands:
+
+```
+cryptowatch --list-exchanges
+cryptowatch --list-markets bithumb
+```
+
 In code:
 
 ```ruby
 require 'cointools'
 cryptowatch = CoinTools::Cryptowatch.new
 
-result = cryptowatch.get_price('kraken', 'btceur', Time.now - 86400)
-puts "Yesterday: #{result.price}"
+exchange = cryptowatch.exchanges.first
 
-result = cryptowatch.get_current_price('kraken', 'btceur')
-puts "Today: #{result.price}"
+list = cryptowatch.get_markets(exchange)
+market = list.select { |x| x =~ /ltc/ && x !~ /btc/ }.first.upcase
+
+result = cryptowatch.get_price(exchange, market, Time.now - 86400)
+puts "#{market} yesterday: #{result.price}"
+
+result = cryptowatch.get_current_price(exchange, market)
+puts "#{market} today: #{result.price}"
 ```
 
 The result object contains the requested price and (for historical prices) the actual timestamp of the found price, which might slightly differ from the timestamp passed in the argument (the earlier the date, the less precise the result).
