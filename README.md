@@ -16,9 +16,7 @@ To use the code as a library, add it to your Gemfile:
 gem 'cointools'
 ```
 
-## Usage
-
-### [Cryptowatch](https://cryptowat.ch)
+## [Cryptowatch](https://cryptowat.ch)
 
 To check past price of a given coin on a chosen exchange, pass the exchange and market name and a properly formatted timestamp:
 
@@ -60,7 +58,7 @@ puts "#{market} today: #{result.price}"
 The result object contains the requested price and (for historical prices) the actual timestamp of the found price, which might slightly differ from the timestamp passed in the argument (the earlier the date, the less precise the result).
 
 
-### [CoinMarketCap](https://coinmarketcap.com)
+## [CoinMarketCap](https://coinmarketcap.com)
 
 CoinMarketCap's API only returns current coin prices. To look up a coin's price, you need to pass its name as used on CoinMarketCap:
 
