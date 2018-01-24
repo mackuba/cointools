@@ -7,19 +7,21 @@ require 'optparse'
 require 'time'
 
 def print_help
-  puts "Usage: #{$PROGRAM_NAME} <coin_name> [-v/--verbose]"
+  puts "Usage: #{$PROGRAM_NAME} <coin_name> [-b/--btc-price] [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} litecoin"
   puts
   puts "* To look up the currency by symbol instead of name (slower, downloads more data):"
-  puts "       #{$PROGRAM_NAME} -s/--symbol <symbol>"
+  puts "       #{$PROGRAM_NAME} -s/--symbol <symbol> [-b/--btc-price] [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} -s LTC"
 end
 
 verbose = false
+btc_price = false
 symbol = nil
 
 OptionParser.new do |opts|
   opts.on('-v', '--verbose') { verbose = true }
+  opts.on('-b', '--btc-price') { btc_price = true }
 
   opts.on('-h', '--help') do
     print_help
@@ -42,9 +44,9 @@ end
 
 begin
   if symbol
-    result = CoinTools::CoinMarketCap.new.get_price_by_symbol(symbol)
+    result = CoinTools::CoinMarketCap.new.get_price_by_symbol(symbol, btc_price)
   else
-    result = CoinTools::CoinMarketCap.new.get_price(coin_name)
+    result = CoinTools::CoinMarketCap.new.get_price(coin_name, btc_price)
   end
 
   if verbose
