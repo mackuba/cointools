@@ -27,6 +27,10 @@ module CoinTools
     class InvalidDateException < StandardError
     end
 
+    def exchanges
+      @exchanges ||= get_exchanges
+    end
+
     def get_price(exchange, market, time = nil)
       return get_current_price(exchange, market) if time.nil?
 
@@ -81,6 +85,22 @@ module CoinTools
         request['User-Agent'] = USER_AGENT
 
         http.request(request)
+      end
+    end
+
+    def get_exchanges
+      url = URI("#{BASE_URL}/exchanges")
+
+      response = make_request(url)
+
+      case response
+      when Net::HTTPSuccess
+        json = JSON.load(response.body)
+        return json['result'].select { |e| e['active'] == true }.map { |e| e['symbol'] }.sort
+      when Net::HTTPBadRequest
+        raise BadRequestException.new(response)
+      else
+        raise Exception.new(response)
       end
     end
   end

@@ -10,11 +10,18 @@ verbose = false
 
 OptionParser.new { |opts|
   opts.on('-v', '--verbose') { verbose = true }
+  opts.on('--list-exchanges') do
+    puts CoinTools::Cryptowatch.new.exchanges
+    exit 0
+  end
 }.parse!
 
 if ARGV.length < 2 || ARGV.length > 3
   puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
+  puts
+  puts "* To print a list of available exchanges:"
+  puts "       #{$PROGRAM_NAME} --list-exchanges"
   exit 1
 end
 
