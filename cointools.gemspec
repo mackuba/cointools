@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = "A collection of scripts for checking cryptocurrency prices."
   spec.homepage      = "https://github.com/mackuba/cointools"
-  spec.license       = "VSPL (Very Simple Public License)"
+  spec.license       = "Nonstandard"
 
   spec.files         = ['VSPL-LICENSE.txt', 'README.md'] + Dir['bin/*'] + Dir['lib/**/*']
 
