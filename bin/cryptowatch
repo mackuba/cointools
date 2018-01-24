@@ -3,9 +3,16 @@
 require 'bundler/setup'
 require 'cointools'
 
+require 'optparse'
 require 'time'
 
-if ARGV.length < 2
+verbose = false
+
+OptionParser.new { |opts|
+  opts.on('-v', '--verbose') { verbose = true }
+}.parse!
+
+if ARGV.length < 2 || ARGV.length > 3
   puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
   exit 1
@@ -13,8 +20,7 @@ end
 
 exchange = ARGV[0].downcase
 market = ARGV[1].downcase
-date = Time.parse(ARGV[2]) if ARGV[2] && !ARGV[2].start_with?('-')
-verbose = ARGV.last == '-v' || ARGV.last == '--verbose'
+date = Time.parse(ARGV[2]) if ARGV[2]
 
 begin
   result = CoinTools::Cryptowatch.new.get_price(exchange, market, date)
