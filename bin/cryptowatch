@@ -6,10 +6,25 @@ require 'cointools'
 require 'optparse'
 require 'time'
 
+def print_help
+  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose]"
+  puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
+  puts
+  puts "* To print a list of available exchanges:"
+  puts "       #{$PROGRAM_NAME} --list-exchanges"
+  puts "* To print a list of available markets on an exchange:"
+  puts "       #{$PROGRAM_NAME} --list-markets kraken"
+end
+
 verbose = false
 
 OptionParser.new do |opts|
   opts.on('-v', '--verbose') { verbose = true }
+
+  opts.on('-h', '--help') do
+    print_help
+    exit 0
+  end
 
   opts.on('--list-exchanges') do
     puts CoinTools::Cryptowatch.new.exchanges
@@ -30,13 +45,7 @@ OptionParser.new do |opts|
 end
 
 if ARGV.length < 2 || ARGV.length > 3
-  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose]"
-  puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
-  puts
-  puts "* To print a list of available exchanges:"
-  puts "       #{$PROGRAM_NAME} --list-exchanges"
-  puts "* To print a list of available markets on an exchange:"
-  puts "       #{$PROGRAM_NAME} --list-markets kraken"
+  print_help
   exit 1
 end
 
