@@ -31,6 +31,22 @@ module CoinTools
       @exchanges ||= get_exchanges
     end
 
+    def get_markets(exchange)
+      url = URI("#{BASE_URL}/markets/#{exchange}")
+
+      response = make_request(url)
+
+      case response
+      when Net::HTTPSuccess
+        json = JSON.load(response.body)
+        return json['result'].select { |m| m['active'] == true }.map { |m| m['pair'] }.sort
+      when Net::HTTPBadRequest
+        raise BadRequestException.new(response)
+      else
+        raise Exception.new(response)
+      end
+    end
+
     def get_price(exchange, market, time = nil)
       return get_current_price(exchange, market) if time.nil?
 

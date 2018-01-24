@@ -10,9 +10,20 @@ verbose = false
 
 OptionParser.new { |opts|
   opts.on('-v', '--verbose') { verbose = true }
+
   opts.on('--list-exchanges') do
     puts CoinTools::Cryptowatch.new.exchanges
     exit 0
+  end
+
+  opts.on('--list-markets EXCHANGE') do |exchange|
+    begin
+      puts CoinTools::Cryptowatch.new.get_markets(exchange)
+      exit 0
+    rescue CoinTools::Cryptowatch::BadRequestException => e
+      $stderr.puts "Error: Incorrect exchange name: #{e}"
+      exit 3
+    end
   end
 }.parse!
 
@@ -22,6 +33,8 @@ if ARGV.length < 2 || ARGV.length > 3
   puts
   puts "* To print a list of available exchanges:"
   puts "       #{$PROGRAM_NAME} --list-exchanges"
+  puts "* To print a list of available markets on an exchange:"
+  puts "       #{$PROGRAM_NAME} --list-markets kraken"
   exit 1
 end
 
