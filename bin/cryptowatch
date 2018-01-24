@@ -26,7 +26,7 @@ begin
   result = CoinTools::Cryptowatch.new.get_price(exchange, market, date)
 
   if verbose
-    puts "#{exchange}:#{market} @ #{result.time} ==> #{result.price}"
+    puts "#{exchange}:#{market} @ #{result.time || Time.now} ==> #{result.price}"
     puts
   else
     puts result.price

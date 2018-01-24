@@ -64,7 +64,7 @@ module CoinTools
         json = JSON.load(response.body)
         price = json['result']['price']
 
-        return DataPoint.new(price, Time.now)
+        return DataPoint.new(price, nil)
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
