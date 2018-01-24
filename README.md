@@ -1,6 +1,6 @@
 # Cointools
 
-This is a collection of Ruby scripts and library classes that let you check cryptocurrency prices on various services (currently Cryptowatch).
+This is a collection of Ruby scripts and library classes that let you check cryptocurrency prices on various services.
 
 ## Installation
 
@@ -42,7 +42,7 @@ cryptowatch --list-markets bithumb
 In code:
 
 ```ruby
-require 'cointools'
+require 'cointools'  # or 'cointools/cryptowatch'
 cryptowatch = CoinTools::Cryptowatch.new
 
 exchange = cryptowatch.exchanges.first
@@ -58,6 +58,36 @@ puts "#{market} today: #{result.price}"
 ```
 
 The result object contains the requested price and (for historical prices) the actual timestamp of the found price, which might slightly differ from the timestamp passed in the argument (the earlier the date, the less precise the result).
+
+
+### [CoinMarketCap](https://coinmarketcap.com)
+
+CoinMarketCap's API only returns current coin prices. To look up a coin's price, you need to pass its name as used on CoinMarketCap:
+
+```
+coinmcap power-ledger
+```
+
+Alternatively, you can pass the cryptocurrency's symbol using the `-s` or `--symbol` parameter:
+
+```
+coinmcap -s powr
+```
+
+However, this operation needs to download a complete ticker for all currencies and scan through the list, so it's recommended to use the name as in the example above.
+
+In code:
+
+```ruby
+require 'cointools'  # or 'cointools/coinmarketcap'
+cmc = CoinTools::CoinMarketCap.new
+
+result = cryptowatch.get_price('litecoin')
+puts "LTC: #{result.price}"
+
+result = cryptowatch.get_price_by_symbol('xmr')
+puts "XMR: #{result.price}"
+```
 
 
 ## Credits & contributing
