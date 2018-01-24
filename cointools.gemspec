@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/mackuba/cointools"
   spec.license       = "Nonstandard"
 
-  spec.files         = ['VSPL-LICENSE.txt', 'README.md'] + Dir['bin/*'] + Dir['lib/**/*']
+  spec.files         = ['VSPL-LICENSE.txt', 'README.md'] + Dir['lib/**/*']
 
   spec.bindir        = "bin"
   spec.executables   = Dir['bin/*'].map { |f| File.basename(f) } - ['console', 'setup']
