@@ -86,11 +86,15 @@ Or you can request the price in one of the ~30 other supported fiat currencies w
 coinmcap request-network -fEUR
 ```
 
-In code:
+You can print a list of supported fiat currencies with `coinmcap --list-fiat-currencies`.
+
+Same things in code:
 
 ```ruby
 require 'cointools'  # or 'cointools/coinmarketcap'
 cmc = CoinTools::CoinMarketCap.new
+
+p CoinTools::CoinMarketCap::FIAT_CURRENCIES
 
 ltc = cryptowatch.get_price('litecoin')
 puts "LTC: #{ltc.usd_price} USD / #{ltc.btc_price} BTC"
