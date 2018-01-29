@@ -9,7 +9,15 @@ module CoinTools
     BASE_URL = "https://api.coinmarketcap.com"
     USER_AGENT = "cointools/#{CoinTools::VERSION}"
 
-    DataPoint = Struct.new(:price, :time)
+    class DataPoint
+      attr_reader :time, :usd_price, :btc_price
+
+      def initialize(time, usd_price, btc_price)
+        @time = time
+        @usd_price = usd_price
+        @btc_price = btc_price
+      end
+    end
 
     class InvalidResponseException < StandardError
       attr_reader :response
@@ -29,7 +37,7 @@ module CoinTools
     class InvalidDateException < StandardError
     end
 
-    def get_price(coin_name, btc_price = false)
+    def get_price(coin_name)
       url = URI("#{BASE_URL}/v1/ticker/#{coin_name}/")
 
       response = make_request(url)
@@ -39,11 +47,11 @@ module CoinTools
         json = JSON.load(response.body)
         record = json[0]
 
-        key = btc_price ? 'price_btc' : 'price_usd'
-        price = record[key].to_f
+        usd_price = record['price_usd'].to_f
+        btc_price = record['price_btc'].to_f
         timestamp = Time.at(record['last_updated'].to_i)
 
-        return DataPoint.new(price, timestamp)
+        return DataPoint.new(timestamp, usd_price, btc_price)
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
@@ -51,7 +59,7 @@ module CoinTools
       end
     end
 
-    def get_price_by_symbol(coin_symbol, btc_price = false)
+    def get_price_by_symbol(coin_symbol)
       url = URI("#{BASE_URL}/v1/ticker/?limit=0")
       symbol = coin_symbol.downcase
 
@@ -63,11 +71,11 @@ module CoinTools
         record = json.detect { |r| r['symbol'].downcase == symbol }
         raise NoDataException.new('No coin found with given symbol') if record.nil?
 
-        key = btc_price ? 'price_btc' : 'price_usd'
-        price = record[key].to_f
+        usd_price = record['price_usd'].to_f
+        btc_price = record['price_btc'].to_f
         timestamp = Time.at(record['last_updated'].to_i)
 
-        return DataPoint.new(price, timestamp)
+        return DataPoint.new(timestamp, usd_price, btc_price)
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else

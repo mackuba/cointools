@@ -44,16 +44,18 @@ end
 
 begin
   if symbol
-    result = CoinTools::CoinMarketCap.new.get_price_by_symbol(symbol, btc_price)
+    result = CoinTools::CoinMarketCap.new.get_price_by_symbol(symbol)
   else
-    result = CoinTools::CoinMarketCap.new.get_price(coin_name, btc_price)
+    result = CoinTools::CoinMarketCap.new.get_price(coin_name)
   end
 
+  price = btc_price ? result.btc_price : result.usd_price
+
   if verbose
-    puts "#{symbol&.upcase || coin_name} @ #{result.time || Time.now} ==> #{result.price}"
+    puts "#{symbol&.upcase || coin_name} @ #{result.time || Time.now} ==> #{price}"
     puts
   else
-    puts result.price
+    puts price
   end
 rescue CoinTools::Cryptowatch::BadRequestException => e
   $stderr.puts "Error: Incorrect coin name: #{e}"

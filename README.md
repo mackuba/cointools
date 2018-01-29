@@ -86,12 +86,11 @@ In code:
 require 'cointools'  # or 'cointools/coinmarketcap'
 cmc = CoinTools::CoinMarketCap.new
 
-ltcusd = cryptowatch.get_price('litecoin')
-ltcbtc = cryptowatch.get_price('litecoin', true)
-puts "LTC: #{ltcusd.price} USD / #{ltcbtc.price} BTC"
+ltc = cryptowatch.get_price('litecoin')
+puts "LTC: #{ltc.usd_price} USD / #{ltc.btc_price} BTC"
 
-result = cryptowatch.get_price_by_symbol('xmr')
-puts "XMR: #{result.price}"
+xmr = cryptowatch.get_price_by_symbol('xmr')
+puts "XMR: #{xmr.usd_price} USD / #{xmr.btc_price} BTC"
 ```
 
 
