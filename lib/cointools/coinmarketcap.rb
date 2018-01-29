@@ -76,7 +76,7 @@ module CoinTools
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
-        raise Exception.new(response)
+        raise InvalidResponseException.new(response)
       end
     end
 

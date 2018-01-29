@@ -84,8 +84,8 @@ begin
   else
     puts price
   end
-rescue CoinTools::CoinMarketCap::BadRequestException => e
-  $stderr.puts "Error: Incorrect coin name: #{e}"
+rescue CoinTools::CoinMarketCap::InvalidResponseException => e
+  $stderr.puts "Error: Incorrect coin name: #{coin_name} (#{e})"
   exit 3
 rescue CoinTools::CoinMarketCap::NoDataException => e
   $stderr.puts "Error: #{e}"
