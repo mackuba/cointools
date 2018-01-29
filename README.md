@@ -80,6 +80,12 @@ You can also use the `-b` or `--btc-price` flag to request a price in BTC instea
 coinmcap power-ledger -b
 ```
 
+Or you can request the price in one of the ~30 other supported fiat currencies with `-f` or `--fiat-currency`:
+
+```
+coinmcap request-network -fEUR
+```
+
 In code:
 
 ```ruby
@@ -91,6 +97,9 @@ puts "LTC: #{ltc.usd_price} USD / #{ltc.btc_price} BTC"
 
 xmr = cryptowatch.get_price_by_symbol('xmr')
 puts "XMR: #{xmr.usd_price} USD / #{xmr.btc_price} BTC"
+
+eth = cryptowatch.get_price('ethereum', convert_to: 'EUR')
+puts "ETH: #{eth.converted_price} EUR"
 ```
 
 
