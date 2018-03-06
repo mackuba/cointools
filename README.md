@@ -109,6 +109,6 @@ puts "ETH: #{eth.converted_price} EUR"
 
 ## Credits & contributing
 
-Copyright © 2018 [Kuba Suder](https://mackuba.eu). Licensed under [Very Simple Public License](https://github.com/mackuba/cointools/blob/master/VSPL-LICENSE.txt), my custom license that's basically a simplified version of the MIT license that fits in 3 lines.
+Copyright © 2018 [Kuba Suder](https://mackuba.eu). Licensed under [MIT License](http://opensource.org/licenses/MIT).
 
 If you'd like to help me extend the scripts with some additional features or add support for new services, [send me a pull request](https://github.com/mackuba/cointools/pulls).

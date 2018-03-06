@@ -1,3 +1,7 @@
+#### Version 0.2.1 (6.03.2018)
+
+* changed license to MIT
+
 #### Version 0.2.0 (29.01.2018)
 
 * added CoinMarketCap class & coinmcap binary

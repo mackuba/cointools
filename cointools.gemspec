@@ -11,9 +11,9 @@ Gem::Specification.new do |spec|
 
   spec.summary       = "A collection of scripts for checking cryptocurrency prices."
   spec.homepage      = "https://github.com/mackuba/cointools"
-  spec.license       = "Nonstandard"
+  spec.license       = "MIT"
 
-  spec.files         = ['CHANGELOG.md', 'README.md', 'VSPL-LICENSE.txt'] + Dir['lib/**/*']
+  spec.files         = ['CHANGELOG.md', 'README.md', 'MIT-LICENSE.txt'] + Dir['lib/**/*']
 
   spec.bindir        = "bin"
   spec.executables   = Dir['bin/*'].map { |f| File.basename(f) } - ['console', 'setup']
