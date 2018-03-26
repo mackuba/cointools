@@ -2,6 +2,9 @@
 
 This is a collection of Ruby scripts and library classes that let you check cryptocurrency prices on various services.
 
+[![Gem Version](https://badge.fury.io/rb/cointools.svg)](https://badge.fury.io/rb/cointools) [![Build Status](https://travis-ci.org/mackuba/cointools.svg?branch=master)](https://travis-ci.org/mackuba/cointools)
+
+
 ## Installation
 
 To use the scripts from the command line, install the gem:
