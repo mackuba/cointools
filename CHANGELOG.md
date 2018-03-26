@@ -1,3 +1,7 @@
+#### Version 0.3.0 (26.03.2018)
+
+* added BitBay class and bitbay-price command
+
 #### Version 0.2.1 (6.03.2018)
 
 * changed license to MIT
