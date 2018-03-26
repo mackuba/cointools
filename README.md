@@ -107,6 +107,28 @@ puts "ETH: #{eth.converted_price} EUR"
 ```
 
 
+## [BitBay](https://bitbay.net)
+
+Returns ticker prices directly from the BitBay exchange, only current coin prices. Specify market name as coin symbol + currency.
+
+```
+bitbay-price btcusd
+```
+
+In code:
+
+```ruby
+require 'cointools'  # or 'cointools/bitbay'
+bitbay = CoinTools::BitBay.new
+
+ltc = bitbay.get_price('ltcusd')
+puts "LTC: #{ltc.price} USD"
+
+btg = bitbay.get_price('btgbtc')
+puts "BTG: #{btg.price} BTC"
+```
+
+
 ## Credits & contributing
 
 Copyright © 2018 [Kuba Suder](https://mackuba.eu). Licensed under [MIT License](http://opensource.org/licenses/MIT).
