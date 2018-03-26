@@ -1,4 +1,4 @@
-# Cointools
+# CoinTools
 
 This is a collection of Ruby scripts and library classes that let you check cryptocurrency prices on various services.
 
@@ -7,7 +7,9 @@ This is a collection of Ruby scripts and library classes that let you check cryp
 
 ## Installation
 
-To use the scripts from the command line, install the gem:
+CoinTools requires Ruby version 2.3 or newer.
+
+To use the scripts from the command line, install the gem (depending on your configuration, you might need to add `sudo`):
 
 ```
 gem install cointools
