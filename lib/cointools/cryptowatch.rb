@@ -74,7 +74,7 @@ module CoinTools
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
-        raise Exception.new(response)
+        raise InvalidResponseException.new(response)
       end
     end
 
@@ -92,7 +92,7 @@ module CoinTools
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
-        raise Exception.new(response)
+        raise InvalidResponseException.new(response)
       end
     end
 
@@ -141,10 +141,8 @@ module CoinTools
       when Net::HTTPSuccess
         json = JSON.load(response.body)
         return json['result'].select { |e| e['active'] == true }.map { |e| e['symbol'] }.sort
-      when Net::HTTPBadRequest
-        raise BadRequestException.new(response)
       else
-        raise Exception.new(response)
+        raise InvalidResponseException.new(response)
       end
     end
   end
