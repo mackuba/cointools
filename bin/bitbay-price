@@ -42,8 +42,8 @@ begin
   end
 rescue CoinTools::BitBay::ErrorResponseException => e
   $stderr.puts "Error: #{e}"
-  exit 2
+  exit 1
 rescue CoinTools::BitBay::BadRequestException => e
   $stderr.puts "Error: Incorrect market name (#{e})"
-  exit 3
+  exit 1
 end

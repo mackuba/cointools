@@ -57,7 +57,7 @@ end
 
 if fiat_currency && btc_price
   puts "#{$PROGRAM_NAME}: --btc-price and --fiat-currency options cannot be used together"
-  exit 2
+  exit 1
 end
 
 begin
@@ -86,14 +86,14 @@ begin
   end
 rescue CoinTools::CoinMarketCap::BadRequestException => e
   $stderr.puts "Error: Incorrect coin name: #{coin_name} (#{e})"
-  exit 3
+  exit 1
 rescue CoinTools::CoinMarketCap::InvalidResponseException => e
   $stderr.puts "Error: Something went wrong: #{e}"
-  exit 3
+  exit 1
 rescue CoinTools::CoinMarketCap::NoDataException => e
   $stderr.puts "Error: #{e}"
-  exit 4
+  exit 1
 rescue CoinTools::CoinMarketCap::InvalidFiatCurrencyException => e
   $stderr.puts "Error: Unsupported fiat currency: #{fiat_currency}"
-  exit 5
+  exit 1
 end

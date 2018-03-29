@@ -37,7 +37,7 @@ OptionParser.new do |opts|
       exit 0
     rescue CoinTools::Cryptowatch::BadRequestException => e
       $stderr.puts "Error: Incorrect exchange name: #{e}"
-      exit 3
+      exit 1
     end
   end
 
@@ -64,11 +64,11 @@ begin
   end
 rescue CoinTools::Cryptowatch::InvalidDateException => e
   $stderr.puts "Error: #{e}"
-  exit 2
+  exit 1
 rescue CoinTools::Cryptowatch::BadRequestException => e
   $stderr.puts "Error: Incorrect exchange or market name (#{e})"
-  exit 3
+  exit 1
 rescue CoinTools::Cryptowatch::NoDataException => e
   $stderr.puts "Error: #{e}: data not ready yet"
-  exit 4
+  exit 1
 end
