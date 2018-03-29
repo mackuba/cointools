@@ -11,3 +11,7 @@ end
 def json(hash)
   JSON.generate(hash)
 end
+
+def user_agent_header
+  { 'User-Agent' => "cointools/#{CoinTools::VERSION}" }
+end

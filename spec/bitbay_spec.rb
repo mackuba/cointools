@@ -30,9 +30,7 @@ describe CoinTools::BitBay do
 
       subject.get_price('ltceur')
 
-      WebMock.should have_requested(:get, ticker_url('ltceur')).with(
-        headers: { 'User-Agent' => "cointools/#{CoinTools::VERSION}" }
-      )
+      WebMock.should have_requested(:get, ticker_url('ltceur')).with(headers: user_agent_header)
     end
 
     context 'when an error code is returned' do

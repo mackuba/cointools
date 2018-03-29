@@ -73,7 +73,7 @@ module CoinTools
         end
 
         return DataPoint.new(timestamp, usd_price, btc_price, converted_price)
-      when Net::HTTPBadRequest
+      when Net::HTTPNotFound
         raise BadRequestException.new(response)
       else
         raise InvalidResponseException.new(response)
@@ -107,10 +107,10 @@ module CoinTools
         end
 
         return DataPoint.new(timestamp, usd_price, btc_price, converted_price)
-      when Net::HTTPBadRequest
+      when Net::HTTPNotFound
         raise BadRequestException.new(response)
       else
-        raise Exception.new(response)
+        raise InvalidResponseException.new(response)
       end
     end
 
