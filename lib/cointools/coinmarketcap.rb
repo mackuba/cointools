@@ -86,7 +86,7 @@ module CoinTools
 
       if convert_to
         validate_fiat_currency(convert_to)
-        url += "&convert=#{convert_to}"
+        url.query += "&convert=#{convert_to}"
       end
 
       response = make_request(url)
