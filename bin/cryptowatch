@@ -7,9 +7,10 @@ require 'optparse'
 require 'time'
 
 def print_help
-  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose]"
+  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose] [-f/--fast]"
   puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
   puts
+  puts "* --fast: tries to use less API time allowance at the cost of worse reliability"
   puts "* To print a list of available exchanges:"
   puts "       #{$PROGRAM_NAME} --list-exchanges"
   puts "* To print a list of available markets on an exchange:"
@@ -17,6 +18,7 @@ def print_help
 end
 
 verbose = false
+fast = false
 
 OptionParser.new do |opts|
   opts.on('-v', '--verbose') { verbose = true }
@@ -25,6 +27,8 @@ OptionParser.new do |opts|
     print_help
     exit 0
   end
+
+  opts.on('-f', '--fast') { fast = true }
 
   opts.on('--list-exchanges') do
     puts CoinTools::Cryptowatch.new.exchanges
@@ -54,7 +58,8 @@ market = ARGV[1].downcase
 date = Time.parse(ARGV[2]) if ARGV[2]
 
 begin
-  result = CoinTools::Cryptowatch.new.get_price(exchange, market, date)
+  method = fast ? :get_price_fast : :get_price
+  result = CoinTools::Cryptowatch.new.send(method, exchange, market, date)
 
   if verbose
     puts "#{exchange}:#{market} @ #{result.time || Time.now} ==> #{result.price}"

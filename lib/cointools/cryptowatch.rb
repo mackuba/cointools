@@ -11,6 +11,12 @@ module CoinTools
 
     DataPoint = Struct.new(:price, :time)
 
+    # we expect this many days worth of data for a given period precision (in seconds); NOT guaranteed by the API
+    DAYS_FOR_PERIODS = {
+      60 => 3, 180 => 10, 300 => 15, 900 => 2 * 30, 1800 => 4 * 30, 3600 => 8 * 30,
+      7200 => 365, 14400 => 1.5 * 365, 21600 => 2 * 365, 43200 => 3 * 365, 86400 => 4 * 365
+    }
+
     class InvalidResponseException < StandardError
       attr_reader :response
 
@@ -96,6 +102,39 @@ module CoinTools
       end
     end
 
+    def get_price_fast(exchange, market, time)
+      (time <= Time.now) or raise InvalidDateException.new('Future date was passed')
+      (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
+
+      period = precision_for_time(time)
+
+      if period.nil?
+        return get_price(exchange, market, time)
+      end
+
+      unixtime = time.to_i
+      current_time = Time.now.to_i
+      url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/ohlc?after=#{unixtime}&periods=#{period}")
+
+      response = make_request(url)
+
+      case response
+      when Net::HTTPSuccess
+        json = JSON.load(response.body)
+        data = json['result']
+
+        timestamp, o, h, l, c, volume = best_matching_record(data, unixtime, current_time)
+        raise NoDataException.new('No data found for a given time') if timestamp.nil?
+
+        actual_time = Time.at(timestamp)
+        return DataPoint.new(o, actual_time)
+      when Net::HTTPBadRequest
+        raise BadRequestException.new(response)
+      else
+        raise InvalidResponseException.new(response)
+      end
+    end
+
 
     private
 
@@ -130,6 +169,21 @@ module CoinTools
       end
 
       candidates.sort_by { |record| (record[0] - unixtime).abs }.first
+    end
+
+    def precision_for_time(time)
+      now = Time.now
+
+      DAYS_FOR_PERIODS.keys.sort.each do |period|
+        days = DAYS_FOR_PERIODS[period]
+        earliest_date = now - days * 86400
+
+        if earliest_date < time
+          return period
+        end
+      end
+
+      nil
     end
 
     def get_exchanges
