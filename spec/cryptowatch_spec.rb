@@ -73,7 +73,7 @@ describe CoinTools::Cryptowatch do
   describe '#get_current_price' do
     context 'when a correct response is returned' do
       before do
-        stub('kraken', 'btceur', body: json({ result: { price: 6000.0 }}))
+        stub('kraken', 'btceur', body: json({ result: { price: 6000.0 }, allowance: {}}))
       end
 
       it 'should return a data point with nil timestamp' do
@@ -85,7 +85,7 @@ describe CoinTools::Cryptowatch do
     end
 
     it 'should send user agent headers' do
-      stub('bitstamp', 'btcusd', body: json({ result: {}}))
+      stub('bitstamp', 'btcusd', body: json({ result: {}, allowance: {}}))
 
       subject.get_current_price('bitstamp', 'btcusd')
 
