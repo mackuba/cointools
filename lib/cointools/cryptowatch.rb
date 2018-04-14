@@ -9,7 +9,7 @@ module CoinTools
     BASE_URL = "https://api.cryptowat.ch"
     USER_AGENT = "cointools/#{CoinTools::VERSION}"
 
-    DataPoint = Struct.new(:price, :time)
+    DataPoint = Struct.new(:price, :time, :api_time_spent, :api_time_remaining)
 
     # we expect this many days worth of data for a given period precision (in seconds); NOT guaranteed by the API
     DAYS_FOR_PERIODS = {
@@ -71,12 +71,13 @@ module CoinTools
       when Net::HTTPSuccess
         json = JSON.load(response.body)
         data = json['result']
+        allowance = json['allowance']
 
         timestamp, o, h, l, c, volume = best_matching_record(data, unixtime, current_time)
         raise NoDataException.new('No data found for a given time') if timestamp.nil?
 
         actual_time = Time.at(timestamp)
-        return DataPoint.new(o, actual_time)
+        return DataPoint.new(o, actual_time, allowance['cost'], allowance['remaining'])
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
@@ -93,8 +94,9 @@ module CoinTools
       when Net::HTTPSuccess
         json = JSON.load(response.body)
         price = json['result']['price']
+        allowance = json['allowance']
 
-        return DataPoint.new(price, nil)
+        return DataPoint.new(price, nil, allowance['cost'], allowance['remaining'])
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
@@ -122,12 +124,13 @@ module CoinTools
       when Net::HTTPSuccess
         json = JSON.load(response.body)
         data = json['result']
+        allowance = json['allowance']
 
         timestamp, o, h, l, c, volume = best_matching_record(data, unixtime, current_time)
         raise NoDataException.new('No data found for a given time') if timestamp.nil?
 
         actual_time = Time.at(timestamp)
-        return DataPoint.new(o, actual_time)
+        return DataPoint.new(o, actual_time, allowance['cost'], allowance['remaining'])
       when Net::HTTPBadRequest
         raise BadRequestException.new(response)
       else
