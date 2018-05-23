@@ -42,14 +42,13 @@ module CoinTools
         url = URI("#{BASE_URL}/history/#{symbol.upcase}")
       end
 
-      unixtime = time.to_i
-
       response = make_request(url)
 
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
         data = json['price']
+        unixtime = time.to_i
 
         timestamp, price = best_matching_record(data, unixtime)
         actual_time = Time.at(timestamp / 1000)
