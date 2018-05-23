@@ -112,6 +112,45 @@ puts "ETH: #{eth.converted_price} EUR"
 ```
 
 
+## [CoinCap.io](https://coincap.io)
+
+To check past price of a given coin, pass the coin's symbol and a properly formatted timestamp:
+
+```
+coincap xmr "2018-04-01 13:00"
+```
+
+To check the current price, skip the timestamp:
+
+```
+coincap xmr"
+```
+
+You can also use the `-b` or `--btc-price` flag to request a price in BTC instead of USD, or `-e` or `--eur-price` for EUR:
+
+```
+coincap xmr -b
+coincap xmr -e
+```
+
+These are however only supported for current prices - past prices are only listed in USD.
+
+In code:
+
+```ruby
+require 'cointools'  # or 'cointools/coincap'
+coincap = CoinTools::CoinCap.new
+
+result = coincap.get_price('XMR', Time.now - 86400)
+puts "XMR yesterday: $#{result.usd_price} (#{result.time})"
+
+result = coincap.get_current_price('XMR')
+puts "XMR today: $#{result.usd_price} / €#{result.eur_price} / ₿#{result.btc_price}"
+```
+
+The result object contains the requested price and (for historical prices) the actual timestamp of the found price, which might slightly differ from the timestamp passed in the argument (the earlier the date, the less precise the result).
+
+
 ## Credits & contributing
 
 Copyright © 2018 [Kuba Suder](https://mackuba.eu). Licensed under [MIT License](http://opensource.org/licenses/MIT).
