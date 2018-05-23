@@ -1,0 +1,81 @@
+#!/usr/bin/env ruby
+
+require 'bundler/setup'
+require 'cointools'
+
+require 'optparse'
+require 'time'
+
+def print_help
+  puts "Usage: #{$PROGRAM_NAME} <symbol> [<date>] [-b/--btc-price | -e/--eur-price] [-v/--verbose]"
+  puts " e.g.: #{$PROGRAM_NAME} NANO \"2017-12-20 15:00\""
+  puts
+  puts "* -b / --btc-price: returns the coin's price in BTC instead of USD (current prices only)"
+  puts "* -e / --eur-price: returns the coin's price in EUR (current prices only)"
+end
+
+verbose = false
+btc_price = false
+eur_price = false
+
+OptionParser.new do |opts|
+  opts.on('-v', '--verbose') { verbose = true }
+  opts.on('-b', '--btc-price') { btc_price = true }
+  opts.on('-e', '--eur-price') { eur_price = true }
+
+  opts.on('-h', '--help') do
+    print_help
+    exit 0
+  end
+
+  opts.parse!
+end
+
+if ARGV.length < 1 || ARGV.length > 2
+  print_help
+  exit 1
+end
+
+symbol = ARGV[0]
+date = Time.parse(ARGV[1]) if ARGV[1]
+
+if eur_price && btc_price
+  puts "#{$PROGRAM_NAME}: --btc-price and --eur-price options cannot be used together"
+  exit 1
+end
+
+if date && (eur_price || btc_price)
+  puts "#{$PROGRAM_NAME}: --btc-price and --eur-price options cannot be used for historical prices"
+  exit 1
+end
+
+begin
+  result = CoinTools::CoinCap.new.get_price(symbol, date)
+
+  if btc_price
+    price = result.btc_price
+    unit = 'BTC'
+  elsif eur_price
+    price = result.eur_price
+    unit = 'EUR'
+  else
+    price = result.usd_price
+    unit = 'USD'
+  end
+
+  if verbose
+    puts "#{symbol.upcase} @ #{result.time || Time.now} ==> #{price} #{unit}"
+    puts
+  else
+    puts price
+  end
+rescue CoinTools::CoinCap::BadRequestException => e
+  $stderr.puts "Error: Incorrect coin name: #{coin_name} (#{e})"
+  exit 1
+rescue CoinTools::CoinCap::InvalidResponseException => e
+  $stderr.puts "Error: Something went wrong: #{e}"
+  exit 1
+rescue CoinTools::CoinCap::NoDataException => e
+  $stderr.puts "Error: #{e}"
+  exit 1
+end
