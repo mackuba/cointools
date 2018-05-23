@@ -68,13 +68,13 @@ The result object contains the requested price and (for historical prices) the a
 CoinMarketCap's API only returns current coin prices. To look up a coin's price, you need to pass its name as used on CoinMarketCap:
 
 ```
-coinmcap power-ledger
+cmcap power-ledger
 ```
 
 Alternatively, you can pass the cryptocurrency's symbol using the `-s` or `--symbol` parameter:
 
 ```
-coinmcap -s powr
+cmcap -s powr
 ```
 
 However, this operation needs to download a complete ticker for all currencies and scan through the list, so it's recommended to use the name as in the example above.
@@ -82,16 +82,16 @@ However, this operation needs to download a complete ticker for all currencies a
 You can also use the `-b` or `--btc-price` flag to request a price in BTC instead of USD:
 
 ```
-coinmcap power-ledger -b
+cmcap power-ledger -b
 ```
 
 Or you can request the price in one of the ~30 other supported fiat currencies with `-f` or `--fiat-currency`:
 
 ```
-coinmcap request-network -fEUR
+cmcap request-network -fEUR
 ```
 
-You can print a list of supported fiat currencies with `coinmcap --list-fiat-currencies`.
+You can print a list of supported fiat currencies with `cmcap --list-fiat-currencies`.
 
 Same things in code:
 
