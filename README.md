@@ -135,7 +135,7 @@ coincap xmr "2018-04-01 13:00"
 To check the current price, skip the timestamp:
 
 ```
-coincap xmr"
+coincap xmr
 ```
 
 You can also use the `-b` or `--btc-price` flag to request a price in BTC instead of USD, or `-e` or `--eur-price` for EUR:
