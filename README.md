@@ -21,7 +21,9 @@ To use the code as a library, add it to your Gemfile:
 gem 'cointools'
 ```
 
-## [Cryptowatch](https://cryptowat.ch)
+## Cryptowatch
+
+[Cryptowat.ch](https://cryptowat.ch) is a coin charts site owned by Kraken which tracks historical cryptocurrency prices directly on many exchanges. It provides data from specific markets on specific exchanges, but no general rankings or average market prices.
 
 To check past price of a given coin on a chosen exchange, pass the exchange and market name and a properly formatted timestamp:
 
@@ -62,10 +64,16 @@ puts "#{market} today: #{result.price}"
 
 The result object contains the requested price and (for historical prices) the actual timestamp of the found price, which might slightly differ from the timestamp passed in the argument (the earlier the date, the less precise the result).
 
+The API is rate limited to 8 seconds of CPU time per hour - you can check the `api_time_spent` and `api_time_remaining` properties of the result object to see how much time allowance you have left.
 
-## [CoinMarketCap](https://coinmarketcap.com)
+If you need to do a large amount of lookups in a short period of time, try the alternative `#get_price_fast` method (or `-f` option on the command line). This method tries to guess which data set is the most appropriate for a given point in the past and requests only that set instead of all of them, which should use significantly less API time allowance. This however relies on an undocumented API behavior, so it's not guaranteed to return data and keep working in the future.
 
-CoinMarketCap's API only returns current coin prices. To look up a coin's price, you need to pass its name as used on CoinMarketCap:
+
+## CoinMarketCap
+
+[CoinMarketCap](https://coinmarketcap.com) is by far the most popular site for checking coin rankings and BTC/USD prices for all coins available on the market. The API however only returns current average coin prices.
+
+To look up a coin's price, you need to pass its name as used on CoinMarketCap:
 
 ```
 cmcap power-ledger
@@ -111,8 +119,12 @@ eth = cryptowatch.get_price('ethereum', convert_to: 'EUR')
 puts "ETH: #{eth.converted_price} EUR"
 ```
 
+The soft rate limit for the API is 10 requests per minute (for the currently used v1 API).
 
-## [CoinCap.io](https://coincap.io)
+
+## CoinCap
+
+[CoinCap.io](https://coincap.io) is a site similar to CoinMarketCap with an API that includes historical coin prices (with decreasing precision the further into the past you look).
 
 To check past price of a given coin, pass the coin's symbol and a properly formatted timestamp:
 
@@ -149,6 +161,8 @@ puts "XMR today: $#{result.usd_price} / €#{result.eur_price} / ₿#{result.btc
 ```
 
 The result object contains the requested price and (for historical prices) the actual timestamp of the found price, which might slightly differ from the timestamp passed in the argument (the earlier the date, the less precise the result).
+
+At the moment there don't seem to be any official rate limits for the API.
 
 
 ## Credits & contributing
