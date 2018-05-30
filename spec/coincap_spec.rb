@@ -98,7 +98,7 @@ describe CoinTools::CoinCap do
   describe '#get_price' do
     context 'when time is nil' do
       it 'should forward the request to get_current_price' do
-        subject.should_receive(:get_current_price).and_return(500.0)
+        subject.should_receive(:get_current_price).with('LTC').and_return(500.0)
 
         subject.get_price('LTC', nil).should == 500.0
       end
@@ -106,7 +106,7 @@ describe CoinTools::CoinCap do
 
     context 'when time is not set' do
       it 'should forward the request to get_current_price' do
-        subject.should_receive(:get_current_price).and_return(300.0)
+        subject.should_receive(:get_current_price).with('LTC').and_return(300.0)
 
         subject.get_price('LTC').should == 300.0
       end
