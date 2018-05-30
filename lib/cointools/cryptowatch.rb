@@ -104,7 +104,9 @@ module CoinTools
       end
     end
 
-    def get_price_fast(exchange, market, time)
+    def get_price_fast(exchange, market, time = nil)
+      return get_current_price(exchange, market) if time.nil?
+
       (time <= Time.now) or raise InvalidDateException.new('Future date was passed')
       (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
 
