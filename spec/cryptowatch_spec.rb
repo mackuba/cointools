@@ -21,8 +21,19 @@ describe CoinTools::Cryptowatch do
     stub_request(:get, ticker_url(exchange, pair)).to_return(params)
   end
 
-  def stub_history(exchange, pair, time, data)
-    stub_request(:get, ohlc_url(exchange, pair) + "?after=#{time.to_i}").to_return(body: json(
+  def stub_history(exchange, pair, time, periods, data = nil)
+    if data.nil?
+      data = periods
+      periods = nil
+    end
+
+    url = ohlc_url(exchange, pair) + "?after=#{time.to_i}"
+
+    if periods
+      url += "&periods=#{periods}"
+    end
+
+    stub_request(:get, url).to_return(body: json(
       data.merge(allowance: { cost: 50, remaining: 800 })
     ))
   end
@@ -182,12 +193,12 @@ describe CoinTools::Cryptowatch do
     end
   end
 
-  describe '#get_price' do
+  shared_examples 'get_price behavior' do |method, periods|
     context 'when time is nil' do
       it 'should forward the request to get_current_price' do
         subject.should_receive(:get_current_price).with('bitfinex', 'ltcusd').and_return(500.0)
 
-        subject.get_price('bitfinex', 'ltcusd', nil).should == 500.0
+        subject.send(method, 'bitfinex', 'ltcusd', nil).should == 500.0
       end
     end
 
@@ -195,14 +206,14 @@ describe CoinTools::Cryptowatch do
       it 'should forward the request to get_current_price' do
         subject.should_receive(:get_current_price).with('bitfinex', 'ltcusd').and_return(300.0)
 
-        subject.get_price('bitfinex', 'ltcusd').should == 300.0
+        subject.send(method, 'bitfinex', 'ltcusd').should == 300.0
       end
     end
 
     context 'when date is too far in the past' do
       it 'should throw InvalidDateException' do
         proc {
-          subject.get_price('bitfinex', 'ltcusd', Time.new(2004, 5, 1))
+          subject.send(method, 'bitfinex', 'ltcusd', Time.new(2004, 5, 1))
         }.should raise_error(CoinTools::Cryptowatch::InvalidDateException)
       end
     end
@@ -210,23 +221,9 @@ describe CoinTools::Cryptowatch do
     context 'when a future date is passed' do
       it 'should throw InvalidDateException' do
         proc {
-          subject.get_price('bitfinex', 'ltcusd', Time.now + 86400)
+          subject.send(method, 'bitfinex', 'ltcusd', Time.now + 86400)
         }.should raise_error(CoinTools::Cryptowatch::InvalidDateException)
       end
-    end
-
-    it 'should send user agent headers' do
-      time = Time.now - 300
-
-      stub_history('gdax', 'ethusd', time, result: {
-        "60": [[time.to_i, 400, 440, 420, 434, 0]],
-      })
-
-      subject.get_price('gdax', 'ethusd', time)
-
-      WebMock.should have_requested(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}").with(
-        headers: user_agent_header
-      )
     end
 
     context 'when a correct response is returned' do
@@ -234,7 +231,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, {
+        stub_history('gdax', 'ethusd', timestamp, periods, {
           result: {
             "60": [
               [timestamp - 300, 400, 440, 420, 434, 0],
@@ -251,13 +248,13 @@ describe CoinTools::Cryptowatch do
       end
 
       it 'should return opening price and timestamp closest to the requested time' do
-        data = subject.get_price('gdax', 'ethusd', time)
+        data = subject.send(method, 'gdax', 'ethusd', time)
         data.price.should == 435
         data.time.should == time - 60
       end
 
       it 'should return info about API usage' do
-        data = subject.get_price('gdax', 'ethusd', time)
+        data = subject.send(method, 'gdax', 'ethusd', time)
         data.api_time_spent == 50
         data.api_time_remaining == 800
       end
@@ -268,7 +265,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
           "60": [
             [timestamp - 300, 400, 440, 420, 434, 0],
             [timestamp - 180, 435, 440, 426, 438, 0],
@@ -278,7 +275,7 @@ describe CoinTools::Cryptowatch do
       end
 
       it 'should return it' do
-        data = subject.get_price('gdax', 'ethusd', time)
+        data = subject.send(method, 'gdax', 'ethusd', time)
         data.price.should == 438
         data.time.should == time + 120
       end
@@ -289,7 +286,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
           "60": [
             [timestamp - 300, 400, 440, 420, 434, 0],
             [timestamp - 60, 435, 440, 426, 438, 0],
@@ -302,7 +299,7 @@ describe CoinTools::Cryptowatch do
       end
 
       it 'should return opening price and timestamp closest to the requested time' do
-        data = subject.get_price('gdax', 'ethusd', time)
+        data = subject.send(method, 'gdax', 'ethusd', time)
         data.price.should == 429
         data.time.should == time - 30
       end
@@ -313,7 +310,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
           "3600": [
             [timestamp + 14400, 430, 440, 428, 436, 0],
             [timestamp + 18000, 440, 450, 440, 448, 0],
@@ -326,7 +323,7 @@ describe CoinTools::Cryptowatch do
       end
 
       it 'should return opening price and timestamp closest to the requested time' do
-        data = subject.get_price('gdax', 'ethusd', time)
+        data = subject.send(method, 'gdax', 'ethusd', time)
         data.price.should == 420
         data.time.should == time + 7200
       end
@@ -337,7 +334,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
           "60": [
             [timestamp - 300, 400, 440, 420, 434, 0],
             [timestamp + 120, 438, 450, 432, 444, 0],
@@ -346,7 +343,7 @@ describe CoinTools::Cryptowatch do
       end
 
       it 'should should only take into account the points before current time' do
-        data = subject.get_price('gdax', 'ethusd', time)
+        data = subject.send(method, 'gdax', 'ethusd', time)
         data.price.should == 400
         data.time.should == time - 300
       end
@@ -357,7 +354,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
           "3600": [
             [timestamp + 14400, 430, 440, 428, 436, 0],
             [timestamp + 18000, 440, 450, 440, 448, 0],
@@ -371,7 +368,7 @@ describe CoinTools::Cryptowatch do
 
       it 'should throw NoDataException' do
         proc {
-          subject.get_price('gdax', 'ethusd', time)
+          subject.send(method, 'gdax', 'ethusd', time)
         }.should raise_error(CoinTools::Cryptowatch::NoDataException)
       end
     end
@@ -381,7 +378,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
           "60": [],
           "3600": [
             [timestamp + 14400, 430, 440, 428, 436, 0],
@@ -392,7 +389,7 @@ describe CoinTools::Cryptowatch do
       end
 
       it 'should ignore them' do
-        data = subject.get_price('gdax', 'ethusd', time)
+        data = subject.send(method, 'gdax', 'ethusd', time)
         data.price.should == 430
         data.time.should == time + 14400
       end
@@ -403,7 +400,7 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
           "3600": [],
           "7200": [],
         })
@@ -411,7 +408,7 @@ describe CoinTools::Cryptowatch do
 
       it 'should throw NoDataException' do
         proc {
-          subject.get_price('gdax', 'ethusd', time)
+          subject.send(method, 'gdax', 'ethusd', time)
         }.should raise_error(CoinTools::Cryptowatch::NoDataException)
       end
     end
@@ -421,14 +418,32 @@ describe CoinTools::Cryptowatch do
       let(:time) { Time.at(timestamp) }
 
       before do
-        stub_history('gdax', 'ethusd', timestamp, result: {})
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {})
       end
 
       it 'should throw NoDataException' do
         proc {
-          subject.get_price('gdax', 'ethusd', time)
+          subject.send(method, 'gdax', 'ethusd', time)
         }.should raise_error(CoinTools::Cryptowatch::NoDataException)
       end
+    end
+  end
+
+  describe '#get_price' do
+    include_examples 'get_price behavior', :get_price, nil
+
+    it 'should send user agent headers' do
+      time = Time.now - 300
+
+      stub_history('gdax', 'ethusd', time, result: {
+        "60": [[time.to_i, 400, 440, 420, 434, 0]],
+      })
+
+      subject.get_price('gdax', 'ethusd', time)
+
+      WebMock.should have_requested(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}").with(
+        headers: user_agent_header
+      )
     end
 
     context 'when status 400 is returned' do
@@ -455,6 +470,182 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_price('gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::Cryptowatch::InvalidResponseException, '500 Server Error')
+      end
+    end
+  end
+
+  describe '#get_price_fast' do
+    let(:some_result) {{
+      result: {
+        "86400": [[Time.new(2013, 1, 1).to_i, 1.0, 1.1, 1.0, 1.02, 0]]
+      },
+      allowance: { cost: 50, remaining: 800 }
+    }}
+
+    include_examples 'get_price behavior', :get_price_fast, '60'
+
+    it 'should send user agent headers' do
+      time = Time.now - 300
+
+      stub_request(:get, ohlc_url('gdax', 'ethusd')).with(query: hash_including({})).to_return(body: json(some_result))
+
+      subject.get_price_fast('gdax', 'ethusd', time)
+
+      WebMock.should have_requested(:get, ohlc_url('gdax', 'ethusd')).with(
+        query: hash_including({}),
+        headers: user_agent_header
+      )
+    end
+
+    context 'when the date is more than 4 years ago' do
+      let(:time) { Time.now - 86400 * 365 * 4.5 }
+
+      it 'should forward the request to get_price' do
+        subject.should_receive(:get_price).with('gdax', 'ethusd', time).and_return(10.0)
+
+        subject.get_price_fast('gdax', 'ethusd', time).should == 10.0
+      end
+    end
+
+    context 'when the date is less than 4 years ago' do
+      let(:time) { Time.now - 86400 * 365 * 3.9 }
+
+      it 'should load the 1-day data range' do
+        stub_history('gdax', 'ethusd', time, '86400', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 3 years ago' do
+      let(:time) { Time.now - 86400 * 365 * 2.5 }
+
+      it 'should load the 12-hour data range' do
+        stub_history('gdax', 'ethusd', time, '43200', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 2 years ago' do
+      let(:time) { Time.now - 86400 * 700 }
+
+      it 'should load the 6-hour data range' do
+        stub_history('gdax', 'ethusd', time, '21600', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 1.5 years ago' do
+      let(:time) { Time.now - 86400 * 500 }
+
+      it 'should load the 4-hour data range' do
+        stub_history('gdax', 'ethusd', time, '14400', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than a year ago' do
+      let(:time) { Time.now - 86400 * 340 }
+
+      it 'should load the 2-hour data range' do
+        stub_history('gdax', 'ethusd', time, '7200', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 8 months ago' do
+      let(:time) { Time.now - 86400 * 205 }
+
+      it 'should load the 1-hour data range' do
+        stub_history('gdax', 'ethusd', time, '3600', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 4 months ago' do
+      let(:time) { Time.now - 86400 * 110 }
+
+      it 'should load the 30-min data range' do
+        stub_history('gdax', 'ethusd', time, '1800', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 2 months ago' do
+      let(:time) { Time.now - 86400 * 58 }
+
+      it 'should load the 15-min data range' do
+        stub_history('gdax', 'ethusd', time, '900', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 15 days ago' do
+      let(:time) { Time.now - 86400 * 14 }
+
+      it 'should load the 5-min data range' do
+        stub_history('gdax', 'ethusd', time, '300', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 10 days ago' do
+      let(:time) { Time.now - 86400 * 9 }
+
+      it 'should load the 3-min data range' do
+        stub_history('gdax', 'ethusd', time, '180', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when the date is less than 3 days ago' do
+      let(:time) { Time.now - 86400 * 2.8 }
+
+      it 'should load the 1-min data range' do
+        stub_history('gdax', 'ethusd', time, '60', some_result)
+
+        proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
+      end
+    end
+
+    context 'when status 400 is returned' do
+      let(:time) { Time.now - 300 }
+
+      before do
+        stub_request(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}&periods=60").to_return(
+          status: [400, 'Bad Request']
+        )
+      end
+
+      it 'should throw an exception' do
+        proc {
+          subject.get_price_fast('gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::Cryptowatch::BadRequestException, '400 Bad Request')
+      end
+    end
+
+    context 'when an invalid response is returned' do
+      let(:time) { Time.now - 300 }
+
+      before do
+        stub_request(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}&periods=60").to_return(
+          status: [500, 'Server Error']
+        )
+      end
+
+      it 'should throw an exception' do
+        proc {
+          subject.get_price_fast('gdax', 'ethusd', time)
         }.should raise_error(CoinTools::Cryptowatch::InvalidResponseException, '500 Server Error')
       end
     end
