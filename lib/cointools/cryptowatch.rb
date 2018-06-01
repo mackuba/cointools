@@ -1,4 +1,5 @@
 require_relative 'errors'
+require_relative 'utils'
 require_relative 'version'
 
 require 'json'
@@ -48,7 +49,11 @@ module CoinTools
       raise InvalidExchangeError if exchange.to_s.empty?
       raise InvalidSymbolError if market.to_s.empty?
 
-      return get_current_price(exchange, market) if time.nil?
+      if time.nil?
+        return get_current_price(exchange, market)
+      elsif time.is_a?(String)
+        time = CoinTools.parse_time(time)
+      end
 
       (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
       (time.year >= 2009) or raise InvalidDateError.new('Too early date was passed')
@@ -116,7 +121,11 @@ module CoinTools
       raise InvalidExchangeError if exchange.to_s.empty?
       raise InvalidSymbolError if market.to_s.empty?
 
-      return get_current_price(exchange, market) if time.nil?
+      if time.nil?
+        return get_current_price(exchange, market)
+      elsif time.is_a?(String)
+        time = CoinTools.parse_time(time)
+      end
 
       (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
       (time.year >= 2009) or raise InvalidDateError.new('Too early date was passed')

@@ -1,4 +1,5 @@
 require_relative 'errors'
+require_relative 'utils'
 require_relative 'version'
 
 require 'json'
@@ -18,7 +19,11 @@ module CoinTools
     def get_price(symbol, time = nil)
       raise InvalidSymbolError if symbol.to_s.empty?
 
-      return get_current_price(symbol) if time.nil?
+      if time.nil?
+        return get_current_price(symbol)
+      elsif time.is_a?(String)
+        time = CoinTools.parse_time(time)
+      end
 
       (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
       (time.year >= 2009) or raise InvalidDateError.new('Too early date was passed')
