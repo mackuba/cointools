@@ -1,3 +1,4 @@
+require_relative 'errors'
 require_relative 'version'
 
 require 'json'
@@ -17,29 +18,13 @@ module CoinTools
       7200 => 365, 14400 => 1.5 * 365, 21600 => 2 * 365, 43200 => 3 * 365, 86400 => 4 * 365
     }
 
-    class InvalidResponseException < StandardError
-      attr_reader :response
-
-      def initialize(response)
-        super("#{response.code} #{response.message}")
-        @response = response
-      end
-    end
-
-    class BadRequestException < InvalidResponseException
-    end
-
-    class NoDataException < StandardError
-    end
-
-    class InvalidDateException < StandardError
-    end
-
     def exchanges
       @exchanges ||= get_exchanges
     end
 
     def get_markets(exchange)
+      raise InvalidExchangeError if exchange.to_s.empty?
+
       url = URI("#{BASE_URL}/markets/#{exchange}")
 
       response = make_request(url)
@@ -47,19 +32,26 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
+        raise JSONError.new(response) unless json.is_a?(Hash) && json['result'].is_a?(Array)
+
         return json['result'].select { |m| m['active'] == true }.map { |m| m['pair'] }.sort
-      when Net::HTTPBadRequest
-        raise BadRequestException.new(response)
+      when Net::HTTPNotFound
+        raise UnknownExchangeError.new(response)
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 
     def get_price(exchange, market, time = nil)
+      raise InvalidExchangeError if exchange.to_s.empty?
+      raise InvalidSymbolError if market.to_s.empty?
+
       return get_current_price(exchange, market) if time.nil?
 
-      (time <= Time.now) or raise InvalidDateException.new('Future date was passed')
-      (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
+      (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
+      (time.year >= 2009) or raise InvalidDateError.new('Too early date was passed')
 
       unixtime = time.to_i
       current_time = Time.now.to_i
@@ -70,22 +62,30 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
+        raise JSONError.new(response) unless json.is_a?(Hash)
+
         data = json['result']
         allowance = json['allowance']
+        raise JSONError.new(response) unless data.is_a?(Hash) && allowance.is_a?(Hash)
 
         timestamp, o, h, l, c, volume = best_matching_record(data, unixtime, current_time)
-        raise NoDataException.new('No data found for a given time') if timestamp.nil?
+        raise NoDataError.new(response, 'No price data returned') unless timestamp && o
 
         actual_time = Time.at(timestamp)
         return DataPoint.new(o, actual_time, allowance['cost'], allowance['remaining'])
-      when Net::HTTPBadRequest
-        raise BadRequestException.new(response)
+      when Net::HTTPNotFound
+        raise UnknownCoinError.new(response)
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 
     def get_current_price(exchange, market)
+      raise InvalidExchangeError if exchange.to_s.empty?
+      raise InvalidSymbolError if market.to_s.empty?
+
       url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/price")
 
       response = make_request(url)
@@ -93,22 +93,33 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
-        price = json['result']['price']
+        raise JSONError.new(response) unless json.is_a?(Hash)
+
+        data = json['result']
         allowance = json['allowance']
+        raise JSONError.new(response) unless data.is_a?(Hash) && allowance.is_a?(Hash)
+
+        price = data['price']
+        raise NoDataError.new(response) unless price
 
         return DataPoint.new(price, nil, allowance['cost'], allowance['remaining'])
-      when Net::HTTPBadRequest
-        raise BadRequestException.new(response)
+      when Net::HTTPNotFound
+        raise UnknownCoinError.new(response)
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 
     def get_price_fast(exchange, market, time = nil)
+      raise InvalidExchangeError if exchange.to_s.empty?
+      raise InvalidSymbolError if market.to_s.empty?
+
       return get_current_price(exchange, market) if time.nil?
 
-      (time <= Time.now) or raise InvalidDateException.new('Future date was passed')
-      (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
+      (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
+      (time.year >= 2009) or raise InvalidDateError.new('Too early date was passed')
 
       period = precision_for_time(time)
 
@@ -125,18 +136,23 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
+        raise JSONError.new(response) unless json.is_a?(Hash)
+
         data = json['result']
         allowance = json['allowance']
+        raise JSONError.new(response) unless data.is_a?(Hash) && allowance.is_a?(Hash)
 
         timestamp, o, h, l, c, volume = best_matching_record(data, unixtime, current_time)
-        raise NoDataException.new('No data found for a given time') if timestamp.nil?
+        raise NoDataError.new(response, 'No price data returned') unless timestamp && o
 
         actual_time = Time.at(timestamp)
         return DataPoint.new(o, actual_time, allowance['cost'], allowance['remaining'])
-      when Net::HTTPBadRequest
-        raise BadRequestException.new(response)
+      when Net::HTTPNotFound
+        raise UnknownCoinError.new(response)
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 
@@ -156,7 +172,7 @@ module CoinTools
       candidates = []
 
       data.keys.sort_by { |k| k.to_i }.each do |k|
-        records = data[k]
+        records = data[k] || []
         previous = nil
 
         records.each do |record|
@@ -199,9 +215,13 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
+        raise JSONError.new(response) unless json.is_a?(Hash) && json['result'].is_a?(Array)
+
         return json['result'].select { |e| e['active'] == true }.map { |e| e['symbol'] }.sort
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
   end

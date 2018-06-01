@@ -1,3 +1,4 @@
+require_relative 'errors'
 require_relative 'version'
 
 require 'json'
@@ -27,28 +28,10 @@ module CoinTools
       end
     end
 
-    class InvalidResponseException < StandardError
-      attr_reader :response
-
-      def initialize(response)
-        super("#{response.code} #{response.message}")
-        @response = response
-      end
-    end
-
-    class BadRequestException < InvalidResponseException
-    end
-
-    class NoDataException < StandardError
-    end
-
-    class InvalidFiatCurrencyException < StandardError
-    end
-
-    class InvalidDateException < StandardError
-    end
 
     def get_price(coin_name, convert_to: nil)
+      raise InvalidSymbolError if coin_name.to_s.empty?
+
       url = URI("#{BASE_URL}/v1/ticker/#{coin_name}/")
 
       if convert_to
@@ -61,26 +44,34 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
+        raise JSONError.new(response) unless json.is_a?(Array)
+
         record = json[0]
 
         usd_price = record['price_usd']&.to_f
         btc_price = record['price_btc']&.to_f
         timestamp = Time.at(record['last_updated'].to_i)
 
+        raise NoDataError.new(response) unless usd_price && btc_price && timestamp
+
         if convert_to
           converted_price = record["price_#{convert_to.downcase}"]&.to_f
-          raise NoDataException.new('Conversion to chosen fiat currency failed') if converted_price.nil?
+          raise NoDataError.new(response, 'Conversion to chosen fiat currency failed') if converted_price.nil?
         end
 
         return DataPoint.new(timestamp, usd_price, btc_price, converted_price)
       when Net::HTTPNotFound
-        raise BadRequestException.new(response)
+        raise UnknownCoinError.new(response)
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 
     def get_price_by_symbol(coin_symbol, convert_to: nil)
+      raise InvalidSymbolError if coin_symbol.to_s.empty?
+
       url = URI("#{BASE_URL}/v1/ticker/?limit=0")
       symbol = coin_symbol.downcase
 
@@ -94,23 +85,27 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
+        raise JSONError.new(response) unless json.is_a?(Array)
+
         record = json.detect { |r| r['symbol'].downcase == symbol }
-        raise NoDataException.new('No coin found with given symbol') if record.nil?
+        raise UnknownCoinError.new(response) if record.nil?
 
         usd_price = record['price_usd']&.to_f
         btc_price = record['price_btc']&.to_f
         timestamp = Time.at(record['last_updated'].to_i)
 
+        raise NoDataError.new(response) unless usd_price && btc_price && timestamp
+
         if convert_to
           converted_price = record["price_#{convert_to.downcase}"]&.to_f
-          raise NoDataException.new('Conversion to chosen fiat currency failed') if converted_price.nil?
+          raise NoDataError.new(response, 'Conversion to chosen fiat currency failed') if converted_price.nil?
         end
 
         return DataPoint.new(timestamp, usd_price, btc_price, converted_price)
-      when Net::HTTPNotFound
-        raise BadRequestException.new(response)
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 
@@ -119,7 +114,7 @@ module CoinTools
 
     def validate_fiat_currency(fiat_currency)
       unless FIAT_CURRENCIES.include?(fiat_currency.upcase)
-        raise InvalidFiatCurrencyException
+        raise InvalidFiatCurrencyError
       end
     end
 

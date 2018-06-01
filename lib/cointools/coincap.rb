@@ -1,3 +1,4 @@
+require_relative 'errors'
 require_relative 'version'
 
 require 'json'
@@ -13,26 +14,14 @@ module CoinTools
 
     PERIODS = [1, 7, 30, 90, 180, 365]
 
-    class InvalidResponseException < StandardError
-      attr_reader :response
-
-      def initialize(response)
-        super("#{response.code} #{response.message}")
-        @response = response
-      end
-    end
-
-    class BadRequestException < InvalidResponseException
-    end
-
-    class InvalidDateException < StandardError
-    end
 
     def get_price(symbol, time = nil)
+      raise InvalidSymbolError if symbol.to_s.empty?
+
       return get_current_price(symbol) if time.nil?
 
-      (time <= Time.now) or raise InvalidDateException.new('Future date was passed')
-      (time.year >= 2009) or raise InvalidDateException.new('Too early date was passed')
+      (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
+      (time.year >= 2009) or raise InvalidDateError.new('Too early date was passed')
 
       period = period_for_time(time)
 
@@ -47,21 +36,28 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
-        data = json['price']
-        unixtime = time.to_i
+        raise UnknownCoinError.new(response) if json.nil? || json.empty?
 
+        data = json['price']
+        raise JSONError.new(response) unless data.is_a?(Array)
+
+        unixtime = time.to_i
         timestamp, price = best_matching_record(data, unixtime)
+        raise NoDataError.new(response) if timestamp.nil? || price.nil?
+
         actual_time = Time.at(timestamp / 1000)
 
         return DataPoint.new(actual_time, price, nil, nil)
-      when Net::HTTPBadRequest
-        raise BadRequestException.new(response)
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 
     def get_current_price(symbol)
+      raise InvalidSymbolError if symbol.to_s.empty?
+
       url = URI("#{BASE_URL}/page/#{symbol.upcase}")
 
       response = make_request(url)
@@ -69,16 +65,21 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = JSON.load(response.body)
+        raise UnknownCoinError.new(response) if json.nil? || json.empty?
 
         usd_price = json['price_usd']
         eur_price = json['price_eur']
         btc_price = json['price_btc']
 
-        return DataPoint.new(nil, usd_price, eur_price, btc_price)
-      when Net::HTTPBadRequest
-        raise BadRequestException.new(response)
+        if usd_price || eur_price || btc_price
+          return DataPoint.new(nil, usd_price, eur_price, btc_price)
+        else
+          raise NoDataError.new(response)
+        end
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
       else
-        raise InvalidResponseException.new(response)
+        raise ServiceUnavailableError.new(response)
       end
     end
 

@@ -78,7 +78,7 @@ describe CoinTools::CoinCap do
       it 'should throw an exception' do
         proc {
           subject.get_current_price('XMR')
-        }.should raise_error(CoinTools::CoinCap::BadRequestException, '400 Bad Request')
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
@@ -90,7 +90,7 @@ describe CoinTools::CoinCap do
       it 'should throw an exception' do
         proc {
           subject.get_current_price('XMR')
-        }.should raise_error(CoinTools::CoinCap::InvalidResponseException, '500 Internal Server Error')
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
       end
     end
   end
@@ -113,18 +113,18 @@ describe CoinTools::CoinCap do
     end
 
     context 'when date is too far in the past' do
-      it 'should throw InvalidDateException' do
+      it 'should throw InvalidDateError' do
         proc {
           subject.get_price('LTC', Time.new(2004, 5, 1))
-        }.should raise_error(CoinTools::CoinCap::InvalidDateException)
+        }.should raise_error(CoinTools::InvalidDateError)
       end
     end
 
     context 'when a future date is passed' do
-      it 'should throw InvalidDateException' do
+      it 'should throw InvalidDateError' do
         proc {
           subject.get_price('LTC', Time.now + 86400)
-        }.should raise_error(CoinTools::CoinCap::InvalidDateException)
+        }.should raise_error(CoinTools::InvalidDateError)
       end
     end
 
@@ -241,7 +241,7 @@ describe CoinTools::CoinCap do
       it 'should throw an exception' do
         proc {
           subject.get_price('XMR', Time.now - 3600)
-        }.should raise_error(CoinTools::CoinCap::BadRequestException, '400 Bad Request')
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
@@ -253,7 +253,7 @@ describe CoinTools::CoinCap do
       it 'should throw an exception' do
         proc {
           subject.get_price('XMR', Time.now - 3600)
-        }.should raise_error(CoinTools::CoinCap::InvalidResponseException, '500 Internal Server Error')
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
       end
     end
   end

@@ -34,7 +34,9 @@ describe CoinTools::CoinMarketCap do
     end
 
     it 'should send user agent headers' do
-      stub('bitcoin', body: json([{}]))
+      stub('bitcoin', body: json([
+        { price_usd: '20000.0', price_btc: '1.0', price_pln: '70000.0', last_updated: last_updated }
+      ]))
 
       subject.get_price('bitcoin')
 
@@ -49,7 +51,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price('monero')
-        }.should raise_error(CoinTools::CoinMarketCap::BadRequestException, '404 Not Found')
+        }.should raise_error(CoinTools::BadRequestError, '404 Not Found')
       end
     end
 
@@ -61,7 +63,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price('monero')
-        }.should raise_error(CoinTools::CoinMarketCap::InvalidResponseException)
+        }.should raise_error(CoinTools::ServiceUnavailableError)
       end
     end
   end
@@ -96,7 +98,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price('litecoin', convert_to: 'XYZ')
-        }.should raise_error(CoinTools::CoinMarketCap::InvalidFiatCurrencyException)
+        }.should raise_error(CoinTools::InvalidFiatCurrencyError)
       end
     end
 
@@ -110,7 +112,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price('litecoin', convert_to: 'PLN')
-        }.should raise_error(CoinTools::CoinMarketCap::NoDataException)
+        }.should raise_error(CoinTools::NoDataError)
       end
     end
   end
@@ -134,7 +136,9 @@ describe CoinTools::CoinMarketCap do
     end
 
     it 'should send user agent headers' do
-      stub_request(:get, full_ticker_url).to_return(body: json([{ symbol: 'BTC' }]))
+      stub_request(:get, full_ticker_url).to_return(body: json([
+        { symbol: 'BTC', price_usd: '20000.0', price_btc: '1.0', price_pln: '70000.0', last_updated: last_updated }
+      ]))
 
       subject.get_price_by_symbol('BTC')
 
@@ -149,7 +153,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price_by_symbol('BCC')  # hey hey heyyy!!
-        }.should raise_error(CoinTools::CoinMarketCap::NoDataException)
+        }.should raise_error(CoinTools::UnknownCoinError)
       end
     end
 
@@ -161,7 +165,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price_by_symbol('XMR')
-        }.should raise_error(CoinTools::CoinMarketCap::BadRequestException, '404 Not Found')
+        }.should raise_error(CoinTools::BadRequestError, '404 Not Found')
       end
     end
 
@@ -173,7 +177,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price_by_symbol('XMR')
-        }.should raise_error(CoinTools::CoinMarketCap::InvalidResponseException)
+        }.should raise_error(CoinTools::ServiceUnavailableError)
       end
     end
   end
@@ -208,7 +212,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price_by_symbol('LTC', convert_to: 'XYZ')
-        }.should raise_error(CoinTools::CoinMarketCap::InvalidFiatCurrencyException)
+        }.should raise_error(CoinTools::InvalidFiatCurrencyError)
       end
     end
 
@@ -222,7 +226,7 @@ describe CoinTools::CoinMarketCap do
       it 'should throw an exception' do
         proc {
           subject.get_price_by_symbol('LTC', convert_to: 'PLN')
-        }.should raise_error(CoinTools::CoinMarketCap::NoDataException)
+        }.should raise_error(CoinTools::NoDataError)
       end
     end
   end

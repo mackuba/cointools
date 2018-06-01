@@ -1,10 +1,10 @@
 #!/usr/bin/env ruby
 
 require 'bundler/setup'
-require 'cointools'
+require 'cointools/cryptowatch'
+require 'cointools/utils'
 
 require 'optparse'
-require 'time'
 
 def print_help
   puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose] [-f/--fast]"
@@ -39,8 +39,14 @@ OptionParser.new do |opts|
     begin
       puts CoinTools::Cryptowatch.new.get_markets(exchange)
       exit 0
-    rescue CoinTools::Cryptowatch::BadRequestException => e
-      $stderr.puts "Error: Incorrect exchange name: #{e}"
+    rescue CoinTools::InvalidExchangeError => e
+      $stderr.puts "Error: Invalid exchange name: '#{exchange}'"
+      exit 1
+    rescue CoinTools::UnknownExchangeError => e
+      $stderr.puts "Error: Unknown exchange: #{exchange}"
+      exit 1
+    rescue CoinTools::ResponseError => e
+      $stderr.puts "Error: Something went wrong: #{e.nice_message}"
       exit 1
     end
   end
@@ -55,9 +61,11 @@ end
 
 exchange = ARGV[0].downcase
 market = ARGV[1].downcase
-date = Time.parse(ARGV[2]) if ARGV[2]
+date_string = ARGV[2]
 
 begin
+  date = CoinTools.parse_time(date_string) if date_string
+
   method = fast ? :get_price_fast : :get_price
   result = CoinTools::Cryptowatch.new.send(method, exchange, market, date)
 
@@ -67,13 +75,19 @@ begin
   else
     puts result.price
   end
-rescue CoinTools::Cryptowatch::InvalidDateException => e
-  $stderr.puts "Error: #{e}"
+rescue CoinTools::InvalidExchangeError => e
+  $stderr.puts "Error: Invalid exchange name: '#{exchange}'"
   exit 1
-rescue CoinTools::Cryptowatch::BadRequestException => e
-  $stderr.puts "Error: Incorrect exchange or market name (#{e})"
+rescue CoinTools::InvalidSymbolError => e
+  $stderr.puts "Error: Invalid market name: '#{market}'"
   exit 1
-rescue CoinTools::Cryptowatch::NoDataException => e
-  $stderr.puts "Error: #{e}: data not ready yet"
+rescue CoinTools::InvalidDateError => e
+  $stderr.puts "Error: Invalid date format: '#{date_string}' (#{e})"
+  exit 1
+rescue CoinTools::UnknownCoinError => e
+  $stderr.puts "Error: Unknown exchange/market pair: #{exchange}/#{market}"
+  exit 1
+rescue CoinTools::ResponseError => e
+  $stderr.puts "Error: Something went wrong: #{e.nice_message}"
   exit 1
 end

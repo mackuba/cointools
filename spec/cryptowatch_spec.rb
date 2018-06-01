@@ -90,7 +90,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.exchanges
-        }.should raise_error(CoinTools::Cryptowatch::InvalidResponseException, '500 Internal Server Error')
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
       end
     end
   end
@@ -132,7 +132,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_markets('bitfinex')
-        }.should raise_error(CoinTools::Cryptowatch::InvalidResponseException, '500 Internal Server Error')
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
       end
     end
   end
@@ -161,7 +161,7 @@ describe CoinTools::Cryptowatch do
     end
 
     it 'should send user agent headers' do
-      stub('bitstamp', 'btcusd', body: json({ result: {}, allowance: {}}))
+      stub('bitstamp', 'btcusd', body: json({ result: { price: 10000 }, allowance: {}}))
 
       subject.get_current_price('bitstamp', 'btcusd')
 
@@ -176,7 +176,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_current_price('bitstamp', 'btcusd')
-        }.should raise_error(CoinTools::Cryptowatch::BadRequestException, '400 Bad Request')
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
@@ -188,7 +188,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_current_price('bitstamp', 'btcusd')
-        }.should raise_error(CoinTools::Cryptowatch::InvalidResponseException, '500 Internal Server Error')
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
       end
     end
   end
@@ -211,18 +211,18 @@ describe CoinTools::Cryptowatch do
     end
 
     context 'when date is too far in the past' do
-      it 'should throw InvalidDateException' do
+      it 'should throw InvalidDateError' do
         proc {
           subject.send(method, 'bitfinex', 'ltcusd', Time.new(2004, 5, 1))
-        }.should raise_error(CoinTools::Cryptowatch::InvalidDateException)
+        }.should raise_error(CoinTools::InvalidDateError)
       end
     end
 
     context 'when a future date is passed' do
-      it 'should throw InvalidDateException' do
+      it 'should throw InvalidDateError' do
         proc {
           subject.send(method, 'bitfinex', 'ltcusd', Time.now + 86400)
-        }.should raise_error(CoinTools::Cryptowatch::InvalidDateException)
+        }.should raise_error(CoinTools::InvalidDateError)
       end
     end
 
@@ -366,10 +366,10 @@ describe CoinTools::Cryptowatch do
         })
       end
 
-      it 'should throw NoDataException' do
+      it 'should throw NoDataError' do
         proc {
           subject.send(method, 'gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::Cryptowatch::NoDataException)
+        }.should raise_error(CoinTools::NoDataError)
       end
     end
 
@@ -406,10 +406,10 @@ describe CoinTools::Cryptowatch do
         })
       end
 
-      it 'should throw NoDataException' do
+      it 'should throw NoDataError' do
         proc {
           subject.send(method, 'gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::Cryptowatch::NoDataException)
+        }.should raise_error(CoinTools::NoDataError)
       end
     end
 
@@ -421,10 +421,10 @@ describe CoinTools::Cryptowatch do
         stub_history('gdax', 'ethusd', timestamp, periods, result: {})
       end
 
-      it 'should throw NoDataException' do
+      it 'should throw NoDataError' do
         proc {
           subject.send(method, 'gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::Cryptowatch::NoDataException)
+        }.should raise_error(CoinTools::NoDataError)
       end
     end
   end
@@ -456,7 +456,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_price('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::Cryptowatch::BadRequestException, '400 Bad Request')
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
@@ -470,7 +470,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_price('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::Cryptowatch::InvalidResponseException, '500 Server Error')
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Server Error')
       end
     end
   end
@@ -630,7 +630,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_price_fast('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::Cryptowatch::BadRequestException, '400 Bad Request')
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
@@ -646,7 +646,7 @@ describe CoinTools::Cryptowatch do
       it 'should throw an exception' do
         proc {
           subject.get_price_fast('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::Cryptowatch::InvalidResponseException, '500 Server Error')
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Server Error')
       end
     end
   end

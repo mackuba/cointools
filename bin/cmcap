@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 
 require 'bundler/setup'
-require 'cointools'
+require 'cointools/coinmarketcap'
+require 'cointools/utils'
 
 require 'optparse'
 require 'time'
@@ -84,16 +85,20 @@ begin
   else
     puts price
   end
-rescue CoinTools::CoinMarketCap::BadRequestException => e
-  $stderr.puts "Error: Incorrect coin name: #{coin_name} (#{e})"
+rescue CoinTools::InvalidSymbolError => e
+  $stderr.puts "Error: Invalid coin name: '#{symbol}'"
   exit 1
-rescue CoinTools::CoinMarketCap::InvalidResponseException => e
-  $stderr.puts "Error: Something went wrong: #{e}"
+rescue CoinTools::InvalidFiatCurrencyError => e
+  $stderr.puts "Error: Unsupported fiat currency: '#{fiat_currency}'"
   exit 1
-rescue CoinTools::CoinMarketCap::NoDataException => e
-  $stderr.puts "Error: #{e}"
+rescue CoinTools::UnknownCoinError => e
+  if symbol
+    $stderr.puts "Error: No such coin: #{symbol.upcase}"
+  else
+    $stderr.puts "Error: No such coin: #{coin_name} (remember to use CoinMarketCap's IDs, or the -s option)"
+  end
   exit 1
-rescue CoinTools::CoinMarketCap::InvalidFiatCurrencyException => e
-  $stderr.puts "Error: Unsupported fiat currency: #{fiat_currency}"
+rescue CoinTools::ResponseError => e
+  $stderr.puts "Error: Something went wrong: #{e.nice_message}"
   exit 1
 end

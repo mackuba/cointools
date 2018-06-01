@@ -1,10 +1,10 @@
 #!/usr/bin/env ruby
 
 require 'bundler/setup'
-require 'cointools'
+require 'cointools/coincap'
+require 'cointools/utils'
 
 require 'optparse'
-require 'time'
 
 def print_help
   puts "Usage: #{$PROGRAM_NAME} <symbol> [<date>] [-b/--btc-price | -e/--eur-price] [-v/--verbose]"
@@ -37,19 +37,21 @@ if ARGV.length < 1 || ARGV.length > 2
 end
 
 symbol = ARGV[0]
-date = Time.parse(ARGV[1]) if ARGV[1]
-
-if eur_price && btc_price
-  puts "#{$PROGRAM_NAME}: --btc-price and --eur-price options cannot be used together"
-  exit 1
-end
-
-if date && (eur_price || btc_price)
-  puts "#{$PROGRAM_NAME}: --btc-price and --eur-price options cannot be used for historical prices"
-  exit 1
-end
+date_string = ARGV[1]
 
 begin
+  date = CoinTools.parse_time(date_string) if date_string
+
+  if eur_price && btc_price
+    puts "#{$PROGRAM_NAME}: --btc-price and --eur-price options cannot be used together"
+    exit 1
+  end
+
+  if date && (eur_price || btc_price)
+    puts "#{$PROGRAM_NAME}: --btc-price and --eur-price options cannot be used for historical prices"
+    exit 1
+  end
+
   result = CoinTools::CoinCap.new.get_price(symbol, date)
 
   if btc_price
@@ -69,13 +71,16 @@ begin
   else
     puts price
   end
-rescue CoinTools::CoinCap::BadRequestException => e
-  $stderr.puts "Error: Incorrect coin name: #{coin_name} (#{e})"
+rescue CoinTools::InvalidSymbolError => e
+  $stderr.puts "Error: Invalid coin name: '#{symbol}'"
   exit 1
-rescue CoinTools::CoinCap::InvalidResponseException => e
-  $stderr.puts "Error: Something went wrong: #{e}"
+rescue CoinTools::InvalidDateError => e
+  $stderr.puts "Error: Invalid date format: '#{date_string}' (#{e})"
   exit 1
-rescue CoinTools::CoinCap::NoDataException => e
-  $stderr.puts "Error: #{e}"
+rescue CoinTools::UnknownCoinError => e
+  $stderr.puts "Error: No such coin: #{symbol.upcase}"
+  exit 1
+rescue CoinTools::ResponseError => e
+  $stderr.puts "Error: Something went wrong: #{e.nice_message}"
   exit 1
 end
