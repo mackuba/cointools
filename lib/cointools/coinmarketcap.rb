@@ -28,7 +28,6 @@ module CoinTools
       end
     end
 
-
     def get_price(coin_name, convert_to: nil)
       raise InvalidSymbolError if coin_name.to_s.empty?
 
@@ -107,6 +106,62 @@ module CoinTools
       else
         raise ServiceUnavailableError.new(response)
       end
+    end
+
+    def get_all_prices(convert_to: nil)
+      url = URI("#{BASE_URL}/v2/ticker/?structure=array&sort=id&limit=100")
+
+      if convert_to
+        currency = convert_to.upcase
+        validate_fiat_currency(convert_to)
+        url.query += "&convert=#{currency}"
+      else
+        url.query += "&convert=BTC"
+      end
+
+      start = 0
+      coins = {}
+
+      loop do
+        page_url = url.clone
+        page_url.query += "&start=#{start}"
+        response = make_request(page_url)
+
+        case response
+        when Net::HTTPSuccess
+          json = JSON.load(response.body)
+          raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
+          raise NoDataError.new(response, json['metadata']['error']) if json['metadata']['error']
+
+          json['data'].each do |record|
+            quotes = record['quotes']
+            raise JSONError.new(response, 'Missing quotes field') unless quotes
+
+            id = record['website_slug']
+            raise JSONError.new(response, 'Missing id field') unless id
+
+            usd_price = quotes['USD'] && quotes['USD']['price']&.to_f
+            btc_price = quotes['BTC'] && quotes['BTC']['price']&.to_f
+            timestamp = Time.at(record['last_updated'].to_i)
+
+            if currency
+              converted_price = quotes[currency] && quotes[currency]['price']&.to_f
+            end
+
+            coins[id] = DataPoint.new(timestamp, usd_price, btc_price, converted_price)
+          end
+
+          start += json['data'].length
+        when Net::HTTPNotFound
+          break
+        when Net::HTTPClientError
+          raise BadRequestError.new(response)
+        else
+          raise ServiceUnavailableError.new(response)
+        end
+      end
+
+      coins
     end
 
 
