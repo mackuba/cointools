@@ -51,7 +51,7 @@ module CoinTools
         btc_price = record['price_btc']&.to_f
         timestamp = Time.at(record['last_updated'].to_i)
 
-        raise NoDataError.new(response) unless usd_price && btc_price && timestamp
+        raise NoDataError.new(response) unless usd_price && btc_price && record['last_updated']
 
         if convert_to
           converted_price = record["price_#{convert_to.downcase}"]&.to_f
