@@ -1,3 +1,4 @@
+require_relative 'base_struct'
 require_relative 'errors'
 require_relative 'utils'
 require_relative 'version'
@@ -11,7 +12,7 @@ module CoinTools
     BASE_URL = "https://api.cryptowat.ch"
     USER_AGENT = "cointools/#{CoinTools::VERSION}"
 
-    DataPoint = Struct.new(:price, :time, :api_time_spent, :api_time_remaining)
+    DataPoint = BaseStruct.make(:price, :time, :api_time_spent, :api_time_remaining)
 
     # we expect this many days worth of data for a given period precision (in seconds); NOT guaranteed by the API
     DAYS_FOR_PERIODS = {
@@ -77,7 +78,13 @@ module CoinTools
         raise NoDataError.new(response, 'No price data returned') unless timestamp && o
 
         actual_time = Time.at(timestamp)
-        return DataPoint.new(o, actual_time, allowance['cost'], allowance['remaining'])
+
+        return DataPoint.new(
+          price: o,
+          time: actual_time,
+          api_time_spent: allowance['cost'],
+          api_time_remaining: allowance['remaining']
+        )
       when Net::HTTPNotFound
         raise UnknownCoinError.new(response)
       when Net::HTTPClientError
@@ -107,7 +114,12 @@ module CoinTools
         price = data['price']
         raise NoDataError.new(response) unless price
 
-        return DataPoint.new(price, nil, allowance['cost'], allowance['remaining'])
+        return DataPoint.new(
+          price: price,
+          time: nil,
+          api_time_spent: allowance['cost'],
+          api_time_remaining: allowance['remaining']
+        )
       when Net::HTTPNotFound
         raise UnknownCoinError.new(response)
       when Net::HTTPClientError
@@ -155,7 +167,13 @@ module CoinTools
         raise NoDataError.new(response, 'No price data returned') unless timestamp && o
 
         actual_time = Time.at(timestamp)
-        return DataPoint.new(o, actual_time, allowance['cost'], allowance['remaining'])
+
+        return DataPoint.new(
+          price: o,
+          time: actual_time,
+          api_time_spent: allowance['cost'],
+          api_time_remaining: allowance['remaining']
+        )
       when Net::HTTPNotFound
         raise UnknownCoinError.new(response)
       when Net::HTTPClientError

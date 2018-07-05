@@ -1,3 +1,4 @@
+require_relative 'base_struct'
 require_relative 'errors'
 require_relative 'version'
 
@@ -17,16 +18,8 @@ module CoinTools
       'ZAR'
     ]
 
-    class DataPoint
-      attr_reader :time, :usd_price, :btc_price, :converted_price
+    DataPoint = BaseStruct.make(:time, :usd_price, :btc_price, :converted_price)
 
-      def initialize(time, usd_price, btc_price, converted_price = nil)
-        @time = time
-        @usd_price = usd_price
-        @btc_price = btc_price
-        @converted_price = converted_price
-      end
-    end
 
     def get_price(coin_name, convert_to: nil)
       raise InvalidSymbolError if coin_name.to_s.empty?
@@ -58,7 +51,12 @@ module CoinTools
           raise NoDataError.new(response, 'Conversion to chosen fiat currency failed') if converted_price.nil?
         end
 
-        return DataPoint.new(timestamp, usd_price, btc_price, converted_price)
+        return DataPoint.new(
+          time: timestamp,
+          usd_price: usd_price,
+          btc_price: btc_price,
+          converted_price: converted_price
+        )
       when Net::HTTPNotFound
         raise UnknownCoinError.new(response)
       when Net::HTTPClientError
@@ -100,7 +98,12 @@ module CoinTools
           raise NoDataError.new(response, 'Conversion to chosen fiat currency failed') if converted_price.nil?
         end
 
-        return DataPoint.new(timestamp, usd_price, btc_price, converted_price)
+        return DataPoint.new(
+          time: timestamp,
+          usd_price: usd_price,
+          btc_price: btc_price,
+          converted_price: converted_price
+        )
       when Net::HTTPClientError
         raise BadRequestError.new(response)
       else
@@ -148,7 +151,12 @@ module CoinTools
               converted_price = quotes[currency] && quotes[currency]['price']&.to_f
             end
 
-            coins[id] = DataPoint.new(timestamp, usd_price, btc_price, converted_price)
+            coins[id] = DataPoint.new(
+              time: timestamp,
+              usd_price: usd_price,
+              btc_price: btc_price,
+              converted_price: converted_price
+            )
           end
 
           start += json['data'].length

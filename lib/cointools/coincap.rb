@@ -1,3 +1,4 @@
+require_relative 'base_struct'
 require_relative 'errors'
 require_relative 'utils'
 require_relative 'version'
@@ -11,7 +12,7 @@ module CoinTools
     BASE_URL = "https://coincap.io"
     USER_AGENT = "cointools/#{CoinTools::VERSION}"
 
-    DataPoint = Struct.new(:time, :usd_price, :eur_price, :btc_price)
+    DataPoint = BaseStruct.make(:time, :usd_price, :eur_price, :btc_price)
 
     PERIODS = [1, 7, 30, 90, 180, 365]
 
@@ -52,7 +53,7 @@ module CoinTools
 
         actual_time = Time.at(timestamp / 1000)
 
-        return DataPoint.new(actual_time, price, nil, nil)
+        return DataPoint.new(time: actual_time, usd_price: price, eur_price: nil, btc_price: nil)
       when Net::HTTPClientError
         raise BadRequestError.new(response)
       else
@@ -77,7 +78,7 @@ module CoinTools
         btc_price = json['price_btc']
 
         if usd_price || eur_price || btc_price
-          return DataPoint.new(nil, usd_price, eur_price, btc_price)
+          return DataPoint.new(time: nil, usd_price: usd_price, eur_price: eur_price, btc_price: btc_price)
         else
           raise NoDataError.new(response)
         end
