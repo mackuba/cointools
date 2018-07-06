@@ -87,7 +87,7 @@ Alternatively, you can pass the cryptocurrency's symbol using the `-s` or `--sym
 cmcap -s powr
 ```
 
-However, this operation needs to download a complete ticker for all currencies and scan through the list, so it's recommended to use the name as in the example above.
+However, be aware that coin symbols are not unique on CoinMarketCap - there are at least a few examples of duplicates. In such case, the first coin that matches (probably the older one) will be returned.
 
 By default the price is printed in a verbose format that includes the requested coin symbol and the time of the returned price. Add a `-q/--quiet` option to only print the price as a single number (e.g. to pass it further to another script).
 
