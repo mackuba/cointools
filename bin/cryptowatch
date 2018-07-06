@@ -11,9 +11,9 @@ def print_help
   puts
   puts "* --fast: tries to use less API time allowance at the cost of worse reliability"
   puts "* To print a list of available exchanges:"
-  puts "       #{$PROGRAM_NAME} --list-exchanges"
+  puts "       #{$PROGRAM_NAME} --exchanges"
   puts "* To print a list of available markets on an exchange:"
-  puts "       #{$PROGRAM_NAME} --list-markets kraken"
+  puts "       #{$PROGRAM_NAME} --markets kraken"
 end
 
 verbose = false
@@ -29,12 +29,12 @@ OptionParser.new do |opts|
 
   opts.on('-f', '--fast') { fast = true }
 
-  opts.on('--list-exchanges') do
+  opts.on('--exchanges') do
     puts CoinTools::Cryptowatch.new.exchanges
     exit 0
   end
 
-  opts.on('--list-markets EXCHANGE') do |exchange|
+  opts.on('--markets EXCHANGE') do |exchange|
     begin
       puts CoinTools::Cryptowatch.new.get_markets(exchange)
       exit 0

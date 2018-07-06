@@ -40,8 +40,8 @@ cryptowatch bitfinex btcusd
 You can fetch a list of available exchanges and markets using these commands:
 
 ```
-cryptowatch --list-exchanges
-cryptowatch --list-markets bithumb
+cryptowatch --exchanges
+cryptowatch --markets bithumb
 ```
 
 In code:
