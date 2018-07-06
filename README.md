@@ -99,7 +99,7 @@ Or you can request the price in one of the ~30 other supported fiat currencies w
 cmcap request-network -cEUR
 ```
 
-You can print a list of supported fiat currencies with `cmcap --list-fiat-currencies`.
+You can print a list of supported fiat currencies with `cmcap --fiat-currencies`.
 
 Same things in code:
 

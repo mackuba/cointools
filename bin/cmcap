@@ -15,7 +15,7 @@ def print_help
   puts " e.g.: #{$PROGRAM_NAME} -s LTC"
   puts
   puts "* To list supported fiat currencies:"
-  puts "       #{$PROGRAM_NAME} --list-fiat-currences"
+  puts "       #{$PROGRAM_NAME} --fiat-currences"
   puts
   puts "* -b / --btc-price: returns the coin's price in BTC instead of USD"
   puts "* -cEUR / --convert-to EUR: returns the price in a given fiat currency instead of USD"
@@ -31,7 +31,7 @@ OptionParser.new do |opts|
   opts.on('-b', '--btc-price') { btc_price = true }
   opts.on('-cXXX', '--convert-to XXX') { |f| fiat_currency = f }
 
-  opts.on('--list-fiat-currencies') do
+  opts.on('--fiat-currencies') do
     puts CoinTools::CoinMarketCap::FIAT_CURRENCIES
     exit 0
   end
