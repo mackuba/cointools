@@ -3,7 +3,6 @@ require_relative 'errors'
 require_relative 'utils'
 require_relative 'version'
 
-require 'json'
 require 'net/http'
 require 'uri'
 
@@ -33,7 +32,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash) && json['result'].is_a?(Array)
 
         return json['result'].select { |m| m['active'] == true }.map { |m| m['pair'] }.sort
@@ -53,7 +52,7 @@ module CoinTools
       if time.nil?
         return get_current_price(exchange, market)
       elsif time.is_a?(String)
-        time = CoinTools.parse_time(time)
+        time = Utils.parse_time(time)
       end
 
       (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
@@ -67,7 +66,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['result']
@@ -104,7 +103,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['result']
@@ -136,7 +135,7 @@ module CoinTools
       if time.nil?
         return get_current_price(exchange, market)
       elsif time.is_a?(String)
-        time = CoinTools.parse_time(time)
+        time = Utils.parse_time(time)
       end
 
       (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
@@ -156,7 +155,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['result']
@@ -241,7 +240,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash) && json['result'].is_a?(Array)
 
         return json['result'].select { |e| e['active'] == true }.map { |e| e['symbol'] }.sort

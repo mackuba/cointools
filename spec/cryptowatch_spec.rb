@@ -21,7 +21,7 @@ describe CoinTools::Cryptowatch do
     stub_request(:get, ticker_url(exchange, pair)).to_return(params)
   end
 
-  def stub_history(exchange, pair, time, periods, data = nil)
+  def stub_history(exchange, pair, time, periods, data = nil, response = {})
     if data.nil?
       data = periods
       periods = nil
@@ -33,9 +33,11 @@ describe CoinTools::Cryptowatch do
       url += "&periods=#{periods}"
     end
 
-    stub_request(:get, url).to_return(body: json(
-      data.merge(allowance: { cost: 50, remaining: 800 })
-    ))
+    stub_request(:get, url).to_return({
+      body: json(
+        { allowance: { cost: 50, remaining: 800 }}.merge(data)
+      )
+    }.merge(response))
   end
 
   describe '#exchanges' do
@@ -82,12 +84,82 @@ describe CoinTools::Cryptowatch do
       WebMock.should have_requested(:get, exchanges_url).with(headers: user_agent_header)
     end
 
-    context 'when an invalid response is returned' do
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub_request(:get, exchanges_url).to_return(body: json({
+        result: [],
+        json_class: 'Exploit'
+      }))
+
+      subject.exchanges
+    end
+
+    context 'when the json object is not a hash' do
+      before do
+        stub_request(:get, exchanges_url).to_return(body: json([
+          { symbol: 'kraken', active: true },
+          { symbol: 'bitcurex', active: false },
+          { symbol: 'mtgox', active: false },
+          { symbol: 'bitstamp', active: true }
+        ]))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.exchanges
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include a result key' do
+      before do
+        stub_request(:get, exchanges_url).to_return(body: json({
+          data: [
+            { symbol: 'kraken', active: true }
+          ]
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.exchanges
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the result object is not an array' do
+      before do
+        stub_request(:get, exchanges_url).to_return(body: json({
+          result: { symbol: 'kraken', active: true }
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.exchanges
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when a 4xx status is returned' do
+      before do
+        stub_request(:get, exchanges_url).to_return(status: [400, 'Bad Request'])
+      end
+
+      it 'should throw BadRequestError' do
+        proc {
+          subject.exchanges
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
+      end
+    end
+
+    context 'when a 5xx status is returned' do
       before do
         stub_request(:get, exchanges_url).to_return(status: [500, 'Internal Server Error'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw ServiceUnavailableError' do
         proc {
           subject.exchanges
         }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
@@ -96,6 +168,22 @@ describe CoinTools::Cryptowatch do
   end
 
   describe '#get_markets' do
+    context 'if the passed market name is an empty string' do
+      it 'should throw InvalidExchangeError' do
+        proc {
+          subject.get_markets('')
+        }.should raise_error(CoinTools::InvalidExchangeError)
+      end
+    end
+
+    context 'if the passed market name is nil' do
+      it 'should throw InvalidExchangeError' do
+        proc {
+          subject.get_markets(nil)
+        }.should raise_error(CoinTools::InvalidExchangeError)
+      end
+    end
+
     context 'when a correct response is returned' do
       before do
         stub_request(:get, markets_url('bitfinex')).to_return(body: json({
@@ -124,12 +212,83 @@ describe CoinTools::Cryptowatch do
       WebMock.should have_requested(:get, markets_url('bitfinex')).with(headers: user_agent_header)
     end
 
-    context 'when an invalid response is returned' do
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub_request(:get, markets_url('bitfinex')).to_return(body: json({
+        result: [],
+        json_class: 'Exploit'
+      }))
+
+      subject.get_markets('bitfinex')
+    end
+
+    context 'when the json object is not a hash' do
+      before do
+        stub_request(:get, markets_url('bitfinex')).to_return(body: json(['btcusd', 'btceur']))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_markets('bitfinex')
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include a result key' do
+      before do
+        stub_request(:get, markets_url('bitfinex')).to_return(body: json({ data: [] }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_markets('bitfinex')
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the result object is not an array' do
+      before do
+        stub_request(:get, markets_url('bitfinex')).to_return(body: json({ result: { market: 'btcusd' }}))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_markets('bitfinex')
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when status 404 is returned' do
+      before do
+        stub_request(:get, markets_url('bitfinex')).to_return(status: [404, 'Not Found'])
+      end
+
+      it 'should throw UnknownExchangeError' do
+        proc {
+          subject.get_markets('bitfinex')
+        }.should raise_error(CoinTools::UnknownExchangeError)
+      end
+    end
+
+    context 'when a 4xx status is returned' do
+      before do
+        stub_request(:get, markets_url('bitfinex')).to_return(status: [400, 'Bad Request'])
+      end
+
+      it 'should throw BadRequestError' do
+        proc {
+          subject.get_markets('bitfinex')
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
+      end
+    end
+
+    context 'when a 5xx status is returned' do
       before do
         stub_request(:get, markets_url('bitfinex')).to_return(status: [500, 'Internal Server Error'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw ServiceUnavailableError' do
         proc {
           subject.get_markets('bitfinex')
         }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
@@ -138,6 +297,38 @@ describe CoinTools::Cryptowatch do
   end
 
   describe '#get_current_price' do
+    context 'if the passed exchange name is an empty string' do
+      it 'should throw InvalidExchangeError' do
+        proc {
+          subject.get_current_price('', 'btcusd')
+        }.should raise_error(CoinTools::InvalidExchangeError)
+      end
+    end
+
+    context 'if the passed exchange name is nil' do
+      it 'should throw InvalidExchangeError' do
+        proc {
+          subject.get_current_price(nil, 'btcusd')
+        }.should raise_error(CoinTools::InvalidExchangeError)
+      end
+    end
+
+    context 'if the passed market name is an empty string' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.get_current_price('kraken', '')
+        }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+
+    context 'if the passed market name is nil' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.get_current_price('kraken', nil)
+        }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+
     context 'when a correct response is returned' do
       before do
         stub('kraken', 'btceur', body: json({ result: { price: 6000.0 }, allowance: { cost: 10, remaining: 1000 }}))
@@ -168,24 +359,96 @@ describe CoinTools::Cryptowatch do
       WebMock.should have_requested(:get, ticker_url('bitstamp', 'btcusd')).with(headers: user_agent_header)
     end
 
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub('bitstamp', 'btcusd', body: json({
+        result: { price: 6000.0 },
+        allowance: { cost: 10, remaining: 1000 },
+        json_class: 'Exploit'
+      }))
+
+      subject.get_current_price('bitstamp', 'btcusd')
+    end
+
+    context 'when the json object is not a hash' do
+      before do
+        stub('bitstamp', 'btcusd', body: json([ 1000, 2000, 3000 ]))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_current_price('bitstamp', 'btcusd')
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the allowance field is missing' do
+      before do
+        stub('bitstamp', 'btcusd', body: json({ result: { price: 6000.0 }}))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_current_price('bitstamp', 'btcusd')
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the result field is missing' do
+      before do
+        stub('bitstamp', 'btcusd', body: json({ allowance: { cost: 10, remaining: 1000 }}))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_current_price('bitstamp', 'btcusd')
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the price field is missing' do
+      before do
+        stub('kraken', 'btceur', body: json({ result: { market: 'btcusd' }, allowance: { cost: 10, remaining: 1000 }}))
+      end
+
+      it 'should throw NoDataError' do
+        proc {
+          subject.get_current_price('kraken', 'btceur')
+        }.should raise_error(CoinTools::NoDataError)
+      end
+    end
+
+    context 'when status 404 is returned' do
+      before do
+        stub('bitstamp', 'btcusd', status: [404, 'Not Found'])
+      end
+
+      it 'should throw UnknownCoinError' do
+        proc {
+          subject.get_current_price('bitstamp', 'btcusd')
+        }.should raise_error(CoinTools::UnknownCoinError)
+      end
+    end
+
     context 'when status 400 is returned' do
       before do
         stub('bitstamp', 'btcusd', status: [400, 'Bad Request'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw BadRequestError' do
         proc {
           subject.get_current_price('bitstamp', 'btcusd')
         }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
-    context 'when an invalid response is returned' do
+    context 'when a 5xx status is returned' do
       before do
         stub('bitstamp', 'btcusd', status: [500, 'Internal Server Error'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw ServiceUnavailableError' do
         proc {
           subject.get_current_price('bitstamp', 'btcusd')
         }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
@@ -194,6 +457,38 @@ describe CoinTools::Cryptowatch do
   end
 
   shared_examples 'get_price behavior' do |method, periods|
+    context 'if the passed exchange name is an empty string' do
+      it 'should throw InvalidExchangeError' do
+        proc {
+          subject.send(method, '', 'btcusd', Time.now - 86400)
+        }.should raise_error(CoinTools::InvalidExchangeError)
+      end
+    end
+
+    context 'if the passed exchange name is nil' do
+      it 'should throw InvalidExchangeError' do
+        proc {
+          subject.send(method, nil, 'btcusd', Time.now - 86400)
+        }.should raise_error(CoinTools::InvalidExchangeError)
+      end
+    end
+
+    context 'if the passed market name is an empty string' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.send(method, 'kraken', '', Time.now - 86400)
+        }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+
+    context 'if the passed market name is nil' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.send(method, 'kraken', nil, Time.now - 86400)
+        }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+
     context 'when time is nil' do
       it 'should forward the request to get_current_price' do
         subject.should_receive(:get_current_price).with('bitfinex', 'ltcusd').and_return(500.0)
@@ -258,6 +553,24 @@ describe CoinTools::Cryptowatch do
         data.api_time_spent == 50
         data.api_time_remaining == 800
       end
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+      time = Time.now - 3600
+
+      stub_history('gdax', 'ethusd', time.to_i, periods, {
+        result: {
+          "60": [],
+          "3600": [
+            [time.to_i, 390, 420, 390, 411, 0],
+          ],
+        },
+        allowance: { cost: 50, remaining: 800 },
+        json_class: 'Exploit'
+      })
+
+      subject.send(method, 'gdax', 'ethusd', time)
     end
 
     context 'if the closest point to the requested time is after that time' do
@@ -395,6 +708,26 @@ describe CoinTools::Cryptowatch do
       end
     end
 
+    context 'if some data ranges are null' do
+      let(:timestamp) { Time.now.to_i - 86400 }
+      let(:time) { Time.at(timestamp) }
+
+      before do
+        stub_history('gdax', 'ethusd', timestamp, periods, result: {
+          "60": nil,
+          "3600": [
+            [timestamp + 14400, 430, 440, 428, 436, 0],
+          ],
+        })
+      end
+
+      it 'should ignore them' do
+        data = subject.send(method, 'gdax', 'ethusd', time)
+        data.price.should == 430
+        data.time.should == time + 14400
+      end
+    end
+
     context 'if no data points are returned' do
       let(:timestamp) { Time.now.to_i - 3600 }
       let(:time) { Time.at(timestamp) }
@@ -427,6 +760,120 @@ describe CoinTools::Cryptowatch do
         }.should raise_error(CoinTools::NoDataError)
       end
     end
+
+    context 'if json object is not a hash' do
+      let(:timestamp) { Time.now.to_i - 3600 }
+      let(:time) { Time.at(timestamp) }
+
+      before do
+        stub_history('gdax', 'ethusd', timestamp, periods, {}, { body: '[1000, 2000, 3000]' })
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.send(method, 'gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if json object does not include a result key' do
+      let(:timestamp) { Time.now.to_i - 3600 }
+      let(:time) { Time.at(timestamp) }
+
+      before do
+        stub_history('gdax', 'ethusd', timestamp, periods, {})
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.send(method, 'gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if json object does not include an allowance key' do
+      let(:timestamp) { Time.now.to_i - 3600 }
+      let(:time) { Time.at(timestamp) }
+
+      before do
+        stub_history('gdax', 'ethusd', timestamp, periods, { result: { "3600": {}}, allowance: nil })
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.send(method, 'gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the date is passed as a string' do
+      let(:timestamp) { Time.now.to_i - 86400 }
+      let(:time_string) { Time.at(timestamp).strftime('%Y-%m-%d %H:%M:%S') }
+
+      before do
+        stub_history('gdax', 'ethusd', timestamp, periods, {
+          result: {
+            "60": [
+              [timestamp - 60, 435, 440, 426, 438, 0],
+            ],
+          },
+          allowance: { cost: 50, remaining: 800 }
+        })
+      end
+
+      it 'should convert it to a time object automatically' do
+        data = nil
+
+        proc {
+          data = subject.send(method, 'gdax', 'ethusd', time_string)
+        }.should_not raise_error
+
+        data.should_not be_nil
+        data.price.should == 435
+      end
+    end
+
+    context 'when status 404 is returned' do
+      let(:time) { Time.now - 300 }
+
+      before do
+        stub_history('gdax', 'ethusd', time, periods, {}, { status: [404, 'Not Found'] })
+      end
+
+      it 'should throw UnknownCoinError' do
+        proc {
+          subject.send(method, 'gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::UnknownCoinError)
+      end
+    end
+
+    context 'when a 4xx status is returned' do
+      let(:time) { Time.now - 300 }
+
+      before do
+        stub_history('gdax', 'ethusd', time, periods, {}, { status: [400, 'Bad Request'] })
+      end
+
+      it 'should throw BadRequestError' do
+        proc {
+          subject.send(method, 'gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
+      end
+    end
+
+    context 'when a 5xx status is returned' do
+      let(:time) { Time.now - 300 }
+
+      before do
+        stub_history('gdax', 'ethusd', time, periods, {}, { status: [500, 'Server Error'] })
+      end
+
+      it 'should throw ServiceUnavailableError' do
+        proc {
+          subject.send(method, 'gdax', 'ethusd', time)
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Server Error')
+      end
+    end
   end
 
   describe '#get_price' do
@@ -444,34 +891,6 @@ describe CoinTools::Cryptowatch do
       WebMock.should have_requested(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}").with(
         headers: user_agent_header
       )
-    end
-
-    context 'when status 400 is returned' do
-      let(:time) { Time.now - 300 }
-
-      before do
-        stub_request(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}").to_return(status: [400, 'Bad Request'])
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
-      end
-    end
-
-    context 'when an invalid response is returned' do
-      let(:time) { Time.now - 300 }
-
-      before do
-        stub_request(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}").to_return(status: [500, 'Server Error'])
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Server Error')
-      end
     end
   end
 
@@ -615,38 +1034,6 @@ describe CoinTools::Cryptowatch do
         stub_history('gdax', 'ethusd', time, '60', some_result)
 
         proc { subject.get_price_fast('gdax', 'ethusd', time) }.should_not raise_error
-      end
-    end
-
-    context 'when status 400 is returned' do
-      let(:time) { Time.now - 300 }
-
-      before do
-        stub_request(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}&periods=60").to_return(
-          status: [400, 'Bad Request']
-        )
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price_fast('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
-      end
-    end
-
-    context 'when an invalid response is returned' do
-      let(:time) { Time.now - 300 }
-
-      before do
-        stub_request(:get, ohlc_url('gdax', 'ethusd') + "?after=#{time.to_i}&periods=60").to_return(
-          status: [500, 'Server Error']
-        )
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price_fast('gdax', 'ethusd', time)
-        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Server Error')
       end
     end
   end

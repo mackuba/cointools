@@ -16,3 +16,13 @@ end
 def user_agent_header
   { 'User-Agent' => "cointools/#{CoinTools::VERSION}" }
 end
+
+class Exploit
+  def self.json_creatable?
+    true
+  end
+
+  def self.json_create(attributes)
+    raise StandardError, "I'm un ur server, hackin ur jsonz"
+  end
+end

@@ -1,8 +1,8 @@
 require_relative 'base_struct'
 require_relative 'errors'
+require_relative 'utils'
 require_relative 'version'
 
-require 'json'
 require 'net/http'
 require 'uri'
 
@@ -38,7 +38,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
         raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
         raise JSONError.new(response) unless json['data'].is_a?(Array)
@@ -102,7 +102,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
         raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
 
@@ -156,7 +156,7 @@ module CoinTools
 
         case response
         when Net::HTTPSuccess
-          json = JSON.load(response.body)
+          json = Utils.parse_json(response.body)
           raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
           raise NoDataError.new(response, json['metadata']['error']) if json['metadata']['error']
           raise JSONError.new(response) unless json['data'].is_a?(Array)

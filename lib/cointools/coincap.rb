@@ -3,7 +3,6 @@ require_relative 'errors'
 require_relative 'utils'
 require_relative 'version'
 
-require 'json'
 require 'net/http'
 require 'uri'
 
@@ -23,7 +22,7 @@ module CoinTools
       if time.nil?
         return get_current_price(symbol)
       elsif time.is_a?(String)
-        time = CoinTools.parse_time(time)
+        time = Utils.parse_time(time)
       end
 
       (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
@@ -41,8 +40,9 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise UnknownCoinError.new(response) if json.nil? || json.empty?
+        raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['price']
         raise JSONError.new(response) unless data.is_a?(Array)
@@ -70,8 +70,9 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise UnknownCoinError.new(response) if json.nil? || json.empty?
+        raise JSONError.new(response) unless json.is_a?(Hash)
 
         usd_price = json['price_usd']
         eur_price = json['price_eur']
