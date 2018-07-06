@@ -43,6 +43,7 @@ module CoinTools
       when Net::HTTPSuccess
         json = JSON.load(response.body)
         raise UnknownCoinError.new(response) if json.nil? || json.empty?
+        raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['price']
         raise JSONError.new(response) unless data.is_a?(Array)
@@ -72,6 +73,7 @@ module CoinTools
       when Net::HTTPSuccess
         json = JSON.load(response.body)
         raise UnknownCoinError.new(response) if json.nil? || json.empty?
+        raise JSONError.new(response) unless json.is_a?(Hash)
 
         usd_price = json['price_usd']
         eur_price = json['price_eur']

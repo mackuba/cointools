@@ -26,6 +26,22 @@ describe CoinTools::CoinCap do
   end
 
   describe '#get_current_price' do
+    context 'if the passed coin symbol is an empty string' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.get_current_price('')
+        }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+
+    context 'if the passed coin symbol is nil' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.get_current_price(nil)
+        }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+
     context 'when a correct response is returned' do
       before do
         stub_ticker('XMR', body: json({ price_usd: 200.0, price_eur: 150.0, price_btc: 0.002 }))
@@ -70,24 +86,72 @@ describe CoinTools::CoinCap do
       WebMock.should have_requested(:get, ticker_url('XMR')).with(headers: user_agent_header)
     end
 
+    context 'when an empty hash is returned' do
+      before do
+        stub_ticker('XMR', body: '{}')
+      end
+
+      it 'should throw UnknownCoinError' do
+        proc {
+          subject.get_current_price('XMR')
+        }.should raise_error(CoinTools::UnknownCoinError)
+      end
+    end
+
+    context 'when null response is returned' do
+      before do
+        stub_ticker('XMR', body: 'null')
+      end
+
+      it 'should throw UnknownCoinError' do
+        proc {
+          subject.get_current_price('XMR')
+        }.should raise_error(CoinTools::UnknownCoinError)
+      end
+    end
+
+    context 'when the json object is not a hash' do
+      before do
+        stub_ticker('XMR', body: '[1, 2, 3]')
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_current_price('XMR')
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include any prices' do
+      before do
+        stub_ticker('XMR', body: json({ id: 'XMR' }))
+      end
+
+      it 'should throw NoDataError' do
+        proc {
+          subject.get_current_price('XMR')
+        }.should raise_error(CoinTools::NoDataError)
+      end
+    end
+
     context 'when status 400 is returned' do
       before do
         stub_ticker('XMR', status: [400, 'Bad Request'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw BadRequestError' do
         proc {
           subject.get_current_price('XMR')
         }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
-    context 'when an invalid response is returned' do
+    context 'when status 5xx is returned' do
       before do
         stub_ticker('XMR', status: [500, 'Internal Server Error'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw ServiceUnavailableError' do
         proc {
           subject.get_current_price('XMR')
         }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
@@ -125,6 +189,22 @@ describe CoinTools::CoinCap do
         proc {
           subject.get_price('LTC', Time.now + 86400)
         }.should raise_error(CoinTools::InvalidDateError)
+      end
+    end
+
+    context 'if the passed coin symbol is an empty string' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.get_price('', Time.now + 86400)
+        }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+
+    context 'if the passed coin symbol is nil' do
+      it 'should throw InvalidSymbolError' do
+        proc {
+          subject.get_price(nil, Time.now + 86400)
+        }.should raise_error(CoinTools::InvalidSymbolError)
       end
     end
 
@@ -233,24 +313,118 @@ describe CoinTools::CoinCap do
       end
     end
 
+    context 'when an empty hash is returned' do
+      before do
+        stub_history('XMR', 1, body: '{}')
+      end
+
+      it 'should throw UnknownCoinError' do
+        proc {
+          subject.get_price('XMR', Time.now - 3600)
+        }.should raise_error(CoinTools::UnknownCoinError)
+      end
+    end
+
+    context 'when null response is returned' do
+      before do
+        stub_history('XMR', 1, body: 'null')
+      end
+
+      it 'should throw UnknownCoinError' do
+        proc {
+          subject.get_price('XMR', Time.now - 3600)
+        }.should raise_error(CoinTools::UnknownCoinError)
+      end
+    end
+
+    context 'when the json object is not a hash' do
+      before do
+        stub_history('XMR', 1, body: '[1, 2, 3]')
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_price('XMR', Time.now - 3600)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include a "price" key' do
+      before do
+        stub_history('XMR', 1, body: json({ market_cap: [[12345, 10000]] }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_price('XMR', Time.now - 3600)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the price set is not an array' do
+      before do
+        stub_history('XMR', 1, body: json({ market_cap: [[12345, 10000]], price: { "USD": 10000 }}))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.get_price('XMR', Time.now - 3600)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the price set is empty' do
+      let(:time) { Time.now - 3600 }
+
+      before do
+        stub_history('XMR', 1, body: json({
+          price: []
+        }))
+      end
+
+      it 'should throw NoDataError' do
+        proc {
+          subject.get_price('XMR', Time.now - 3600)
+        }.should raise_error(CoinTools::NoDataError)
+      end
+    end
+
+    context 'when the price returned is null' do
+      let(:time) { Time.now - 3600 }
+
+      before do
+        stub_history('XMR', 1, body: json({
+          price: [
+            [(time - 80).to_i * 1000, nil],
+          ]
+        }))
+      end
+
+      it 'should throw NoDataError' do
+        proc {
+          subject.get_price('XMR', Time.now - 3600)
+        }.should raise_error(CoinTools::NoDataError)
+      end
+    end
+
     context 'when status 400 is returned' do
       before do
         stub_history('XMR', 1, status: [400, 'Bad Request'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw BadRequestError' do
         proc {
           subject.get_price('XMR', Time.now - 3600)
         }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
-    context 'when an invalid response is returned' do
+    context 'when status 5xx is returned' do
       before do
         stub_history('XMR', 1, status: [500, 'Internal Server Error'])
       end
 
-      it 'should throw an exception' do
+      it 'should throw ServiceUnavailableError' do
         proc {
           subject.get_price('XMR', Time.now - 3600)
         }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
