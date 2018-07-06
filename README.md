@@ -123,7 +123,9 @@ eth = cryptowatch.get_price('ethereum', convert_to: 'EUR')
 puts "ETH: #{eth.converted_price} EUR"
 ```
 
-The soft rate limit for the API is 10 requests per minute (for the currently used v1 API).
+The soft rate limit for the API is 30 requests per minute (for API v2).
+
+Note: since in the v2 API specific coin tickers can only be looked up using CoinMarketCap's internal numeric ids (e.g. Ethereum = 1027), both lookup methods available here - by the coin name ("slug") and symbol - have to first download a `/listings` JSON with a mapping of all coins on the site. The result of that call is cached in a `CoinTools::CoinMarketCap` object, so if you do many lookups in code, in one go or over some period of time, it's recommended to reuse the object instead of recreating it each time.
 
 
 ## CoinCap
