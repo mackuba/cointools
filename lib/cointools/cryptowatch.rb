@@ -3,7 +3,6 @@ require_relative 'errors'
 require_relative 'utils'
 require_relative 'version'
 
-require 'json'
 require 'net/http'
 require 'uri'
 
@@ -33,7 +32,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash) && json['result'].is_a?(Array)
 
         return json['result'].select { |m| m['active'] == true }.map { |m| m['pair'] }.sort
@@ -67,7 +66,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['result']
@@ -104,7 +103,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['result']
@@ -156,7 +155,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash)
 
         data = json['result']
@@ -241,7 +240,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Hash) && json['result'].is_a?(Array)
 
         return json['result'].select { |e| e['active'] == true }.map { |e| e['symbol'] }.sort

@@ -59,6 +59,17 @@ describe CoinTools::CoinMarketCap do
       WebMock.should have_requested(:get, ticker_url('bitcoin')).with(headers: user_agent_header)
     end
 
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub('litecoin', body: json([
+        { price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated,
+          json_class: 'Exploit' }
+      ]))
+
+      subject.get_price('litecoin')
+    end
+
     context 'when the json object is not an array' do
       before do
         stub('ethereum', body: json({ price_usd: 1000 }))
@@ -231,6 +242,17 @@ describe CoinTools::CoinMarketCap do
         data.btc_price.should == 0.025
         data.converted_price.should be_nil
       end
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub_request(:get, full_ticker_url).to_return(body: json([{
+        symbol: 'LTC', price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated,
+        json_class: 'Exploit'
+      }]))
+
+      subject.get_price_by_symbol('LTC')
     end
 
     it 'should send user agent headers' do

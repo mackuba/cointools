@@ -72,6 +72,13 @@ describe CoinTools::CoinCap do
       end
     end
 
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+      stub_ticker('XMR', body: json({ price_usd: 666, json_class: 'Exploit' }))
+
+      subject.get_current_price('XMR')
+    end
+
     it 'should automatically make the symbol uppercase' do
       stub_ticker('XMR', body: json({ price_usd: 200.0 }))
 
@@ -322,6 +329,13 @@ describe CoinTools::CoinCap do
         data.usd_price.should == 201.0
         data.time.to_i.should == time.to_i - 20
       end
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+      stub_history('XMR', 1, body: json({ price: [[0, 0]], json_class: 'Exploit' }))
+
+      subject.get_price('XMR', Time.now - 3600)
     end
 
     context 'when an empty hash is returned' do

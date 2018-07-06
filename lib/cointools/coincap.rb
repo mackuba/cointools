@@ -3,7 +3,6 @@ require_relative 'errors'
 require_relative 'utils'
 require_relative 'version'
 
-require 'json'
 require 'net/http'
 require 'uri'
 
@@ -41,7 +40,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise UnknownCoinError.new(response) if json.nil? || json.empty?
         raise JSONError.new(response) unless json.is_a?(Hash)
 
@@ -71,7 +70,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise UnknownCoinError.new(response) if json.nil? || json.empty?
         raise JSONError.new(response) unless json.is_a?(Hash)
 

@@ -1,8 +1,8 @@
 require_relative 'base_struct'
 require_relative 'errors'
+require_relative 'utils'
 require_relative 'version'
 
-require 'json'
 require 'net/http'
 require 'uri'
 
@@ -35,7 +35,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Array)
 
         record = json[0]
@@ -81,7 +81,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = JSON.load(response.body)
+        json = Utils.parse_json(response.body)
         raise JSONError.new(response) unless json.is_a?(Array)
 
         record = json.detect { |r| r['symbol'].downcase == symbol }
@@ -132,7 +132,7 @@ module CoinTools
 
         case response
         when Net::HTTPSuccess
-          json = JSON.load(response.body)
+          json = Utils.parse_json(response.body)
           raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
           raise NoDataError.new(response, json['metadata']['error']) if json['metadata']['error']
 

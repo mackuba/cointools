@@ -84,6 +84,17 @@ describe CoinTools::Cryptowatch do
       WebMock.should have_requested(:get, exchanges_url).with(headers: user_agent_header)
     end
 
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub_request(:get, exchanges_url).to_return(body: json({
+        result: [],
+        json_class: 'Exploit'
+      }))
+
+      subject.exchanges
+    end
+
     context 'when the json object is not a hash' do
       before do
         stub_request(:get, exchanges_url).to_return(body: json([
@@ -199,6 +210,17 @@ describe CoinTools::Cryptowatch do
       subject.get_markets('bitfinex')
 
       WebMock.should have_requested(:get, markets_url('bitfinex')).with(headers: user_agent_header)
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub_request(:get, markets_url('bitfinex')).to_return(body: json({
+        result: [],
+        json_class: 'Exploit'
+      }))
+
+      subject.get_markets('bitfinex')
     end
 
     context 'when the json object is not a hash' do
@@ -335,6 +357,18 @@ describe CoinTools::Cryptowatch do
       subject.get_current_price('bitstamp', 'btcusd')
 
       WebMock.should have_requested(:get, ticker_url('bitstamp', 'btcusd')).with(headers: user_agent_header)
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub('bitstamp', 'btcusd', body: json({
+        result: { price: 6000.0 },
+        allowance: { cost: 10, remaining: 1000 },
+        json_class: 'Exploit'
+      }))
+
+      subject.get_current_price('bitstamp', 'btcusd')
     end
 
     context 'when the json object is not a hash' do
@@ -519,6 +553,24 @@ describe CoinTools::Cryptowatch do
         data.api_time_spent == 50
         data.api_time_remaining == 800
       end
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+      time = Time.now - 3600
+
+      stub_history('gdax', 'ethusd', time.to_i, periods, {
+        result: {
+          "60": [],
+          "3600": [
+            [time.to_i, 390, 420, 390, 411, 0],
+          ],
+        },
+        allowance: { cost: 50, remaining: 800 },
+        json_class: 'Exploit'
+      })
+
+      subject.send(method, 'gdax', 'ethusd', time)
     end
 
     context 'if the closest point to the requested time is after that time' do
