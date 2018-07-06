@@ -292,6 +292,17 @@ describe CoinTools::CoinCap do
       end
     end
 
+    context 'when the date is passed as a string' do
+      let(:time) { Time.now - 86400 * 5 }
+      let(:time_string) { time.strftime('%Y-%m-%d %H:%M:%S') }
+
+      it 'should convert it to a time object automatically' do
+        stub_history('XMR', 7, body: json({ price: [some_data_point] }))
+
+        proc { subject.get_price('XMR', time_string) }.should_not raise_error
+      end
+    end
+
     context 'when a correct response is returned' do
       let(:time) { Time.now - 3600 }
 

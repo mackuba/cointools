@@ -427,6 +427,33 @@ describe CoinTools::Cryptowatch do
         }.should raise_error(CoinTools::NoDataError)
       end
     end
+
+    context 'when the date is passed as a string' do
+      let(:timestamp) { Time.now.to_i - 86400 }
+      let(:time_string) { Time.at(timestamp).strftime('%Y-%m-%d %H:%M:%S') }
+
+      before do
+        stub_history('gdax', 'ethusd', timestamp, periods, {
+          result: {
+            "60": [
+              [timestamp - 60, 435, 440, 426, 438, 0],
+            ],
+          },
+          allowance: { cost: 50, remaining: 800 }
+        })
+      end
+
+      it 'should convert it to a time object automatically' do
+        data = nil
+
+        proc {
+          data = subject.send(method, 'gdax', 'ethusd', time_string)
+        }.should_not raise_error
+
+        data.should_not be_nil
+        data.price.should == 435
+      end
+    end
   end
 
   describe '#get_price' do
