@@ -61,13 +61,14 @@ end
 exchange = ARGV[0].downcase
 market = ARGV[1].downcase
 date = ARGV[2]
+currency = market[-3..-1].upcase
 
 begin
   method = fast ? :get_price_fast : :get_price
   result = CoinTools::Cryptowatch.new.send(method, exchange, market, date)
 
   if verbose
-    puts "#{exchange}:#{market} @ #{result.time || Time.now} ==> #{result.price}"
+    puts "#{exchange}:#{market} @ #{result.time || Time.now} ==> #{result.price} #{currency}"
     puts
   else
     puts result.price
