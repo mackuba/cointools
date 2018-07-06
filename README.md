@@ -37,6 +37,8 @@ To check the current price, skip the timestamp:
 cryptowatch bitfinex btcusd
 ```
 
+By default the price is printed in a verbose format that includes the requested market name and the time of the returned price. Add a `-q/--quiet` option to only print the price as a single number (e.g. to pass it further to another script).
+
 You can fetch a list of available exchanges and markets using these commands:
 
 ```
@@ -86,6 +88,8 @@ cmcap -s powr
 ```
 
 However, this operation needs to download a complete ticker for all currencies and scan through the list, so it's recommended to use the name as in the example above.
+
+By default the price is printed in a verbose format that includes the requested coin symbol and the time of the returned price. Add a `-q/--quiet` option to only print the price as a single number (e.g. to pass it further to another script).
 
 You can also use the `-b` or `--btc-price` flag to request a price in BTC instead of USD:
 
@@ -137,6 +141,8 @@ To check the current price, skip the timestamp:
 ```
 coincap xmr
 ```
+
+By default the price is printed in a verbose format that includes the requested coin symbol and the time of the returned price. Add a `-q/--quiet` option to only print the price as a single number (e.g. to pass it further to another script).
 
 You can also use the `-b` or `--btc-price` flag to request a price in BTC instead of USD, or `-e` or `--eur-price` for EUR:
 

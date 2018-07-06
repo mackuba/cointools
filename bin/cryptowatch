@@ -6,7 +6,7 @@ require 'cointools/cryptowatch'
 require 'optparse'
 
 def print_help
-  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-v/--verbose] [-f/--fast]"
+  puts "Usage: #{$PROGRAM_NAME} <exchange> <market> [<date>] [-q/--quiet] [-f/--fast]"
   puts " e.g.: #{$PROGRAM_NAME} gdax btcusd \"2017-06-30 15:27\""
   puts
   puts "* --fast: tries to use less API time allowance at the cost of worse reliability"
@@ -16,11 +16,11 @@ def print_help
   puts "       #{$PROGRAM_NAME} --markets kraken"
 end
 
-verbose = false
+quiet = false
 fast = false
 
 OptionParser.new do |opts|
-  opts.on('-v', '--verbose') { verbose = true }
+  opts.on('-q', '--quiet') { quiet = true }
 
   opts.on('-h', '--help') do
     print_help
@@ -67,11 +67,11 @@ begin
   method = fast ? :get_price_fast : :get_price
   result = CoinTools::Cryptowatch.new.send(method, exchange, market, date)
 
-  if verbose
+  if quiet
+    puts result.price
+  else
     puts "#{exchange}:#{market} @ #{result.time || Time.now} ==> #{result.price} #{currency}"
     puts
-  else
-    puts result.price
   end
 rescue CoinTools::InvalidExchangeError => e
   $stderr.puts "Error: Invalid exchange name: '#{exchange}'"

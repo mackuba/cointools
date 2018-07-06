@@ -7,11 +7,11 @@ require 'optparse'
 require 'time'
 
 def print_help
-  puts "Usage: #{$PROGRAM_NAME} <coin_name> [-b/--btc-price] [-cXXX/--convert-to XXX] [-v/--verbose]"
+  puts "Usage: #{$PROGRAM_NAME} <coin_name> [-b/--btc-price] [-cXXX/--convert-to XXX] [-q/--quiet]"
   puts " e.g.: #{$PROGRAM_NAME} litecoin"
   puts
   puts "* To look up the currency by symbol instead of name (slower, downloads more data):"
-  puts "       #{$PROGRAM_NAME} -s/--symbol <symbol> [-b/--btc-price] [-cXXX/--convert-to XXX] [-v/--verbose]"
+  puts "       #{$PROGRAM_NAME} -s/--symbol <symbol> [-b/--btc-price] [-cXXX/--convert-to XXX] [-q/--quiet]"
   puts " e.g.: #{$PROGRAM_NAME} -s LTC"
   puts
   puts "* To list supported fiat currencies:"
@@ -21,13 +21,13 @@ def print_help
   puts "* -cEUR / --convert-to EUR: returns the price in a given fiat currency instead of USD"
 end
 
-verbose = false
+quiet = false
 btc_price = false
 fiat_currency = nil
 symbol = nil
 
 OptionParser.new do |opts|
-  opts.on('-v', '--verbose') { verbose = true }
+  opts.on('-q', '--quiet') { quiet = true }
   opts.on('-b', '--btc-price') { btc_price = true }
   opts.on('-cXXX', '--convert-to XXX') { |f| fiat_currency = f }
 
@@ -78,11 +78,11 @@ begin
     unit = 'USD'
   end
 
-  if verbose
+  if quiet
+    puts price
+  else
     puts "#{symbol&.upcase || coin_name} @ #{result.time || Time.now} ==> #{price} #{unit}"
     puts
-  else
-    puts price
   end
 rescue CoinTools::InvalidSymbolError => e
   $stderr.puts "Error: Invalid coin name: '#{symbol}'"

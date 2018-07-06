@@ -6,19 +6,19 @@ require 'cointools/coincap'
 require 'optparse'
 
 def print_help
-  puts "Usage: #{$PROGRAM_NAME} <symbol> [<date>] [-b/--btc-price | -e/--eur-price] [-v/--verbose]"
+  puts "Usage: #{$PROGRAM_NAME} <symbol> [<date>] [-b/--btc-price | -e/--eur-price] [-q/--quiet]"
   puts " e.g.: #{$PROGRAM_NAME} NANO \"2017-12-20 15:00\""
   puts
   puts "* -b / --btc-price: returns the coin's price in BTC instead of USD (current prices only)"
   puts "* -e / --eur-price: returns the coin's price in EUR (current prices only)"
 end
 
-verbose = false
+quiet = false
 btc_price = false
 eur_price = false
 
 OptionParser.new do |opts|
-  opts.on('-v', '--verbose') { verbose = true }
+  opts.on('-q', '--quiet') { quiet = true }
   opts.on('-b', '--btc-price') { btc_price = true }
   opts.on('-e', '--eur-price') { eur_price = true }
 
@@ -62,11 +62,11 @@ begin
     unit = 'USD'
   end
 
-  if verbose
+  if quiet
+    puts price
+  else
     puts "#{symbol.upcase} @ #{result.time || Time.now} ==> #{price} #{unit}"
     puts
-  else
-    puts price
   end
 rescue CoinTools::InvalidSymbolError => e
   $stderr.puts "Error: Invalid coin name: '#{symbol}'"
