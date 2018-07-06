@@ -23,7 +23,7 @@ module CoinTools
       if time.nil?
         return get_current_price(symbol)
       elsif time.is_a?(String)
-        time = CoinTools.parse_time(time)
+        time = Utils.parse_time(time)
       end
 
       (time <= Time.now) or raise InvalidDateError.new('Future date was passed')
