@@ -7,18 +7,18 @@ require 'optparse'
 require 'time'
 
 def print_help
-  puts "Usage: #{$PROGRAM_NAME} <coin_name> [-b/--btc-price] [-fXXX/--fiat-currency XXX] [-v/--verbose]"
+  puts "Usage: #{$PROGRAM_NAME} <coin_name> [-b/--btc-price] [-cXXX/--convert-to XXX] [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} litecoin"
   puts
   puts "* To look up the currency by symbol instead of name (slower, downloads more data):"
-  puts "       #{$PROGRAM_NAME} -s/--symbol <symbol> [-b/--btc-price] [-fXXX/--fiat-currency XXX] [-v/--verbose]"
+  puts "       #{$PROGRAM_NAME} -s/--symbol <symbol> [-b/--btc-price] [-cXXX/--convert-to XXX] [-v/--verbose]"
   puts " e.g.: #{$PROGRAM_NAME} -s LTC"
   puts
   puts "* To list supported fiat currencies:"
   puts "       #{$PROGRAM_NAME} --list-fiat-currences"
   puts
   puts "* -b / --btc-price: returns the coin's price in BTC instead of USD"
-  puts "* -fEUR / --fiat-currency EUR: returns the price in a given fiat currency instead of USD"
+  puts "* -cEUR / --convert-to EUR: returns the price in a given fiat currency instead of USD"
 end
 
 verbose = false
@@ -29,7 +29,7 @@ symbol = nil
 OptionParser.new do |opts|
   opts.on('-v', '--verbose') { verbose = true }
   opts.on('-b', '--btc-price') { btc_price = true }
-  opts.on('-fXXX', '--fiat-currency XXX') { |f| fiat_currency = f }
+  opts.on('-cXXX', '--convert-to XXX') { |f| fiat_currency = f }
 
   opts.on('--list-fiat-currencies') do
     puts CoinTools::CoinMarketCap::FIAT_CURRENCIES
@@ -56,7 +56,7 @@ unless symbol
 end
 
 if fiat_currency && btc_price
-  puts "#{$PROGRAM_NAME}: --btc-price and --fiat-currency options cannot be used together"
+  puts "#{$PROGRAM_NAME}: --btc-price and --convert-to options cannot be used together"
   exit 1
 end
 

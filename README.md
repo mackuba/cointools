@@ -93,10 +93,10 @@ You can also use the `-b` or `--btc-price` flag to request a price in BTC instea
 cmcap power-ledger -b
 ```
 
-Or you can request the price in one of the ~30 other supported fiat currencies with `-f` or `--fiat-currency`:
+Or you can request the price in one of the ~30 other supported fiat currencies with `-c` or `--convert-to`:
 
 ```
-cmcap request-network -fEUR
+cmcap request-network -cEUR
 ```
 
 You can print a list of supported fiat currencies with `cmcap --list-fiat-currencies`.
