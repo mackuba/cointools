@@ -3,7 +3,7 @@ require 'spec_helper'
 describe CoinTools::CoinMarketCap do
   subject { CoinTools::CoinMarketCap.new }
 
-  let(:timestamp) { Time.now.round }
+  let(:timestamp) { Time.now.round - 300 }
   let(:last_updated) { timestamp.to_i.to_s }
   let(:full_ticker_url) { "https://api.coinmarketcap.com/v1/ticker/?limit=0" }
   let(:listings_url) { "https://api.coinmarketcap.com/v2/listings/" }
@@ -15,12 +15,12 @@ describe CoinTools::CoinMarketCap do
     { id: 20, name: 'Request Network', symbol: 'REQ', website_slug: 'request-network' }
   ]}
 
-  def ticker_url(symbol)
-    "https://api.coinmarketcap.com/v1/ticker/#{symbol}/"
+  def ticker_url(id, currency)
+    "https://api.coinmarketcap.com/v2/ticker/#{id}/?convert=#{currency}"
   end
 
-  def stub(symbol, params)
-    stub_request(:get, ticker_url(symbol)).to_return(params)
+  def stub_ticker(numeric_id, currency, params)
+    stub_request(:get, ticker_url(numeric_id, currency)).to_return(params)
   end
 
   def stub_listings
@@ -192,9 +192,7 @@ describe CoinTools::CoinMarketCap do
       before do
         stub_request(:get, listings_url).to_return(body: json(
           {
-            data: [
-              { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' }
-            ],
+            data: nil,
             metadata: {
               error: 'something went wrong'
             }
@@ -302,11 +300,13 @@ describe CoinTools::CoinMarketCap do
     end
   end
 
-  describe '#get_price' do
+  shared_examples 'get_price behavior' do |method, param|
+    before { stub_listings }
+
     context 'if the passed coin symbol is an empty string' do
       it 'should throw InvalidSymbolError' do
         proc {
-          subject.get_price('')
+          subject.send(method, '')
         }.should raise_error(CoinTools::InvalidSymbolError)
       end
     end
@@ -314,368 +314,298 @@ describe CoinTools::CoinMarketCap do
     context 'if the passed coin symbol is nil' do
       it 'should throw InvalidSymbolError' do
         proc {
-          subject.get_price(nil)
+          subject.send(method, nil)
         }.should raise_error(CoinTools::InvalidSymbolError)
       end
     end
 
     context 'when a correct response is returned' do
       before do
-        stub('litecoin', body: json([
-          { price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated }
-        ]))
+        stub_ticker(1, 'BTC', body: json({
+          data: {
+            quotes: {
+              'USD': { price: '8000.0' },
+              'BTC': { price: '1.0' },
+            },
+            last_updated: last_updated
+          },
+          metadata: {}
+        }))
       end
 
       it 'should return a data point' do
-        data = subject.get_price('litecoin')
+        data = subject.send(method, param)
 
         data.time.should == timestamp
-        data.usd_price.should == 200.0
-        data.btc_price.should == 0.025
+        data.usd_price.should == 8000.0
+        data.btc_price.should == 1.0
         data.converted_price.should be_nil
       end
     end
 
     it 'should send user agent headers' do
-      stub('bitcoin', body: json([
-        { price_usd: '20000.0', price_btc: '1.0', price_pln: '70000.0', last_updated: last_updated }
-      ]))
+      stub_ticker(1, 'BTC', body: json({
+        data: {
+          quotes: { 'USD': { price: '8000.0' }},
+          last_updated: last_updated
+        },
+        metadata: {}
+      }))
 
-      subject.get_price('bitcoin')
+      subject.send(method, param)
 
-      WebMock.should have_requested(:get, ticker_url('bitcoin')).with(headers: user_agent_header)
+      WebMock.should have_requested(:get, ticker_url(1, 'BTC')).with(headers: user_agent_header)
     end
 
     it 'should not use the unsafe method JSON.load' do
       Exploit.should_not_receive(:json_creatable?)
 
-      stub('litecoin', body: json([
-        { price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated,
-          json_class: 'Exploit' }
-      ]))
+      stub_ticker(1, 'BTC', body: json({
+        data: {
+          quotes: { 'USD': { price: '8000.0', json_class: 'Exploit' }},
+          last_updated: last_updated
+        },
+        metadata: {}
+      }))
 
-      subject.get_price('litecoin')
+      subject.send(method, param)
     end
 
-    context 'when the json object is not an array' do
+    context 'when the json object is not a hash' do
       before do
-        stub('ethereum', body: json({ price_usd: 1000 }))
+        stub_ticker(1, 'BTC', body: json([{}]))
       end
 
       it 'should throw JSONError' do
         proc {
-          subject.get_price('ethereum')
+          subject.send(method, param)
         }.should raise_error(CoinTools::JSONError)
       end
     end
 
-    context 'when the json object does not include usd price' do
+    context 'when the json object does not include a data field' do
       before do
-        stub('litecoin', body: json([
-          { price_usd: nil, price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated }
-        ]))
+        stub_ticker(1, 'BTC', body: json({
+          metadata: {}
+        }))
       end
 
-      it 'should raise NoDataError' do
+      it 'should throw JSONError' do
         proc {
-          subject.get_price('litecoin')
-        }.should raise_error(CoinTools::NoDataError)
+          subject.send(method, param)
+        }.should raise_error(CoinTools::JSONError)
       end
     end
 
-    context 'when the json object does not include btc price' do
+    context 'when the json object does not include a metadata field' do
       before do
-        stub('litecoin', body: json([
-          { price_usd: '200.0', price_btc: nil, price_pln: '1000.0', last_updated: last_updated }
-        ]))
+        stub_ticker(1, 'BTC', body: json({
+          data: {
+            quotes: {
+              'USD': { price: '8000.0' },
+              'BTC': { price: '1.0' },
+            },
+            last_updated: last_updated
+          }
+        }))
       end
 
-      it 'should raise NoDataError' do
+      it 'should throw JSONError' do
         proc {
-          subject.get_price('litecoin')
-        }.should raise_error(CoinTools::NoDataError)
+          subject.send(method, param)
+        }.should raise_error(CoinTools::JSONError)
       end
     end
 
-    context 'when the json object does not include a timestamp' do
+    context 'when the data object is not a hash' do
       before do
-        stub('litecoin', body: json([
-          { price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: nil }
-        ]))
+        stub_ticker(1, 'BTC', body: json({
+          data: [{}],
+          metadata: {}
+        }))
       end
 
-      it 'should raise NoDataError' do
+      it 'should throw JSONError' do
         proc {
-          subject.get_price('litecoin')
-        }.should raise_error(CoinTools::NoDataError)
+          subject.send(method, param)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the metadata field includes an error' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: nil,
+          metadata: { error: 'we have suffered a stolen' }
+        }))
+      end
+
+      it 'should throw BadRequestError' do
+        proc {
+          subject.send(method, param)
+        }.should raise_error(CoinTools::BadRequestError)
+      end
+    end
+
+    context 'when the quotes list is missing' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: {
+            quotes: nil,
+            last_updated: last_updated
+          },
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.send(method, param)
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the quotes list is not a hash' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: {
+            quotes: [
+              { 'USD': { price: '8000.0' }},
+              { 'BTC': { price: '1.0' }},
+            ],
+            last_updated: last_updated
+          },
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.send(method, param)
+        }.should raise_error(CoinTools::JSONError)
       end
     end
 
     context 'when status 404 is returned' do
       before do
-        stub('monero', status: [404, 'Not Found'])
+        stub_ticker(1, 'BTC', status: [404, 'Not Found'])
       end
 
       it 'should throw UnknownCoinError' do
         proc {
-          subject.get_price('monero')
+          subject.send(method, param)
         }.should raise_error(CoinTools::UnknownCoinError, '404 Not Found')
       end
     end
 
     context 'when status 4xx is returned' do
       before do
-        stub('monero', status: [400, 'Bad Request'])
+        stub_ticker(1, 'BTC', status: [400, 'Bad Request'])
       end
 
       it 'should throw BadRequestError' do
         proc {
-          subject.get_price('monero')
+          subject.send(method, param)
         }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
       end
     end
 
     context 'when status 5xx is returned' do
       before do
-        stub('monero', status: [500, 'Internal Server Error'])
+        stub_ticker(1, 'BTC', status: [500, 'Internal Server Error'])
       end
 
       it 'should throw ServiceUnavailableError' do
         proc {
-          subject.get_price('monero')
-        }.should raise_error(CoinTools::ServiceUnavailableError)
+          subject.send(method, param)
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
       end
+    end
+
+    context 'with convert_to' do
+      context 'when a correct response is returned' do
+        before do
+          stub_ticker(1, 'EUR', body: json({
+            data: {
+              quotes: {
+                'USD': { price: '8000.0' },
+                'EUR': { price: '6000.0' },
+              },
+              last_updated: last_updated
+            },
+            metadata: {}
+          }))
+        end
+
+        it 'should return a data point with converted price' do
+          data = subject.send(method, param, convert_to: 'EUR')
+
+          data.time.should == timestamp
+          data.usd_price.should == 8000.0
+          data.btc_price.should be_nil
+          data.converted_price.should == 6000.0
+        end
+      end
+
+      context 'when an unknown fiat currency code is passed' do
+        it 'should not make any requests' do
+          stub_request(:any, //)
+
+          subject.send(method, param, convert_to: 'XYZ') rescue nil
+
+          WebMock.should_not have_requested(:get, //)
+        end
+
+        it 'should throw an exception' do
+          proc {
+            subject.send(method, param, convert_to: 'XYZ')
+          }.should raise_error(CoinTools::InvalidFiatCurrencyError)
+        end
+      end
+
+      context 'when converted price is not included' do
+        before do
+          stub_ticker(1, 'EUR', body: json({
+            data: {
+              quotes: {
+                'USD': { price: '8000.0' },
+                'PLN': { price: '30000.0' },
+              },
+              last_updated: last_updated
+            },
+            metadata: {}
+          }))
+        end
+
+        it 'should return a nil price' do
+          data = subject.send(method, param, convert_to: 'EUR')
+          data.converted_price.should be_nil
+        end
+      end      
     end
   end
 
-  describe '#get_price with convert_to' do
-    context 'when a correct response is returned' do
-      before do
-        stub_request(:get, ticker_url('litecoin') + '?convert=PLN').to_return(body: json([
-          { price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated }
-        ]))
-      end
+  describe '#get_price' do
+    include_examples 'get_price behavior', :get_price, 'bitcoin'
 
-      it 'should return a data point with converted price' do
-        data = subject.get_price('litecoin', convert_to: 'PLN')
-
-        data.time.should == timestamp
-        data.usd_price.should == 200.0
-        data.btc_price.should == 0.025
-        data.converted_price.should == 1000.0
-      end
-    end
-
-    context 'when an unknown fiat currency code is passed' do
-      it 'should not make any requests' do
-        stub_request(:any, //)
-
-        subject.get_price('litecoin', convert_to: 'XYZ') rescue nil
-
-        WebMock.should_not have_requested(:get, //)
-      end
-
-      it 'should throw an exception' do
+    context 'if a coin with given id does not exist' do
+      it 'should throw InvalidSymbolError' do
         proc {
-          subject.get_price('litecoin', convert_to: 'XYZ')
-        }.should raise_error(CoinTools::InvalidFiatCurrencyError)
-      end
-    end
-
-    context 'when converted price is not included' do
-      before do
-        stub_request(:get, ticker_url('litecoin') + '?convert=PLN').to_return(body: json([
-          { price_usd: '200.0', price_btc: '0.025', price_eur: '180.0', last_updated: last_updated }
-        ]))
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price('litecoin', convert_to: 'PLN')
-        }.should raise_error(CoinTools::NoDataError)
+          subject.get_price('bitcoin-cash')
+        }.should raise_error(CoinTools::InvalidSymbolError)
       end
     end
   end
 
   describe '#get_price_by_symbol' do
-    context 'if the passed coin symbol is an empty string' do
+    include_examples 'get_price behavior', :get_price_by_symbol, 'BTC'
+
+    context 'if a coin with given symbol does not exist' do
       it 'should throw InvalidSymbolError' do
         proc {
-          subject.get_price_by_symbol('')
+          subject.get_price('BCC')  # hey hey heyyy!!
         }.should raise_error(CoinTools::InvalidSymbolError)
       end
     end
-
-    context 'if the passed coin symbol is nil' do
-      it 'should throw InvalidSymbolError' do
-        proc {
-          subject.get_price_by_symbol(nil)
-        }.should raise_error(CoinTools::InvalidSymbolError)
-      end
-    end
-
-    context 'when a correct response is returned' do
-      before do
-        stub_request(:get, full_ticker_url).to_return(body: json([{
-          symbol: 'LTC', price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated
-        }]))
-      end
-
-      it 'should return a data point' do
-        data = subject.get_price_by_symbol('LTC')
-
-        data.time.should == timestamp
-        data.usd_price.should == 200.0
-        data.btc_price.should == 0.025
-        data.converted_price.should be_nil
-      end
-    end
-
-    it 'should not use the unsafe method JSON.load' do
-      Exploit.should_not_receive(:json_creatable?)
-
-      stub_request(:get, full_ticker_url).to_return(body: json([{
-        symbol: 'LTC', price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated,
-        json_class: 'Exploit'
-      }]))
-
-      subject.get_price_by_symbol('LTC')
-    end
-
-    it 'should send user agent headers' do
-      stub_request(:get, full_ticker_url).to_return(body: json([
-        { symbol: 'BTC', price_usd: '20000.0', price_btc: '1.0', price_pln: '70000.0', last_updated: last_updated }
-      ]))
-
-      subject.get_price_by_symbol('BTC')
-
-      WebMock.should have_requested(:get, full_ticker_url).with(headers: user_agent_header)
-    end
-
-    context 'when the requested coin is not included on the list' do
-      before do
-        stub_request(:get, full_ticker_url).to_return(body: json([]))
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price_by_symbol('BCC')  # hey hey heyyy!!
-        }.should raise_error(CoinTools::UnknownCoinError)
-      end
-    end
-
-    context 'when the json object is not an array' do
-      before do
-        stub_request(:get, full_ticker_url).to_return(body: json({ price_usd: 1000 }))
-      end
-
-      it 'should throw JSONError' do
-        proc {
-          subject.get_price_by_symbol('ETH')
-        }.should raise_error(CoinTools::JSONError)
-      end
-    end
-
-    context 'when the json object does not include usd price' do
-      before do
-        stub_request(:get, full_ticker_url).to_return(body: json([
-          { symbol: 'BTC', price_usd: nil, price_btc: '1.0', price_pln: '70000.0', last_updated: last_updated }
-        ]))
-      end
-
-      it 'should raise NoDataError' do
-        proc {
-          subject.get_price_by_symbol('BTC')
-        }.should raise_error(CoinTools::NoDataError)
-      end
-    end
-
-    context 'when the json object does not include btc price' do
-      before do
-        stub_request(:get, full_ticker_url).to_return(body: json([
-          { symbol: 'BTC', price_usd: '20000.0', price_btc: nil, price_pln: '70000.0', last_updated: last_updated }
-        ]))
-      end
-
-      it 'should raise NoDataError' do
-        proc {
-          subject.get_price_by_symbol('BTC')
-        }.should raise_error(CoinTools::NoDataError)
-      end
-    end
-
-    context 'when status 400 is returned' do
-      before do
-        stub_request(:get, full_ticker_url).to_return(status: [400, 'Bad Request'])
-      end
-
-      it 'should throw BadRequestError' do
-        proc {
-          subject.get_price_by_symbol('XMR')
-        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
-      end
-    end
-
-    context 'when a 5xx status is returned' do
-      before do
-        stub_request(:get, full_ticker_url).to_return(status: [500, 'Internal Server Error'])
-      end
-
-      it 'should throw ServiceUnavailableError' do
-        proc {
-          subject.get_price_by_symbol('XMR')
-        }.should raise_error(CoinTools::ServiceUnavailableError)
-      end
-    end
   end
-
-  describe '#get_price_by_symbol with convert_to' do
-    context 'when a correct response is returned' do
-      before do
-        stub_request(:get, full_ticker_url + '&convert=PLN').to_return(body: json([{
-          symbol: 'LTC', price_usd: '200.0', price_btc: '0.025', price_pln: '1000.0', last_updated: last_updated
-        }]))
-      end
-
-      it 'should return a data point' do
-        data = subject.get_price_by_symbol('LTC', convert_to: 'PLN')
-
-        data.time.should == timestamp
-        data.usd_price.should == 200.0
-        data.btc_price.should == 0.025
-        data.converted_price.should == 1000.0
-      end
-    end
-
-    context 'when an unknown fiat currency code is passed' do
-      it 'should not make any requests' do
-        stub_request(:any, //)
-
-        subject.get_price_by_symbol('LTC', convert_to: 'XYZ') rescue nil
-
-        WebMock.should_not have_requested(:get, //)
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price_by_symbol('LTC', convert_to: 'XYZ')
-        }.should raise_error(CoinTools::InvalidFiatCurrencyError)
-      end
-    end
-
-    context 'when converted price is not included' do
-      before do
-        stub_request(:get, full_ticker_url + '&convert=PLN').to_return(body: json([{
-          symbol: 'LTC', price_usd: '200.0', price_btc: '0.025', price_eur: '180.0', last_updated: last_updated
-        }]))
-      end
-
-      it 'should throw an exception' do
-        proc {
-          subject.get_price_by_symbol('LTC', convert_to: 'PLN')
-        }.should raise_error(CoinTools::NoDataError)
-      end
-    end
-  end
-
 end

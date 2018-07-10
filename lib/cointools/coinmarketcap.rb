@@ -39,7 +39,7 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = Utils.parse_json(response.body)
-        raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
+        raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
         raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
         raise JSONError.new(response) unless json['data'].is_a?(Array)
 
@@ -74,6 +74,8 @@ module CoinTools
     def get_price(coin_name, convert_to: nil)
       raise InvalidSymbolError if coin_name.to_s.empty?
 
+      validate_fiat_currency(convert_to) if convert_to
+
       listing = id_map[coin_name.to_s]
       raise InvalidSymbolError if listing.nil?
 
@@ -82,6 +84,8 @@ module CoinTools
 
     def get_price_by_symbol(coin_symbol, convert_to: nil)
       raise InvalidSymbolError if coin_symbol.to_s.empty?
+
+      validate_fiat_currency(convert_to) if convert_to
 
       listing = symbol_map[coin_symbol.to_s]
       raise InvalidSymbolError if listing.nil?
@@ -94,7 +98,6 @@ module CoinTools
 
       if convert_to
         currency = convert_to.upcase
-        validate_fiat_currency(currency)
         url.query = "convert=#{currency}"
       else
         url.query = "convert=BTC"
@@ -105,14 +108,14 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = Utils.parse_json(response.body)
-        raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
+        raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
         raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
 
         record = json['data']
         raise JSONError.new(response) unless record.is_a?(Hash)
 
         quotes = record['quotes']
-        raise JSONError.new(response, 'Missing quotes field') unless quotes
+        raise JSONError.new(response, 'Missing quotes field') unless quotes.is_a?(Hash)
 
         usd_price = quotes['USD'] && quotes['USD']['price']&.to_f
         btc_price = quotes['BTC'] && quotes['BTC']['price']&.to_f
