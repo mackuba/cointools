@@ -6,6 +6,14 @@ describe CoinTools::CoinMarketCap do
   let(:timestamp) { Time.now.round }
   let(:last_updated) { timestamp.to_i.to_s }
   let(:full_ticker_url) { "https://api.coinmarketcap.com/v1/ticker/?limit=0" }
+  let(:listings_url) { "https://api.coinmarketcap.com/v2/listings/" }
+
+  let(:listings) {[
+    { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' },
+    { id: 2, name: 'Ethereum', symbol: 'ETH', website_slug: 'ethereum' },
+    { id: 10, name: 'Monero', symbol: 'XMR', website_slug: 'monero' },
+    { id: 20, name: 'Request Network', symbol: 'REQ', website_slug: 'request-network' }
+  ]}
 
   def ticker_url(symbol)
     "https://api.coinmarketcap.com/v1/ticker/#{symbol}/"
@@ -13,6 +21,285 @@ describe CoinTools::CoinMarketCap do
 
   def stub(symbol, params)
     stub_request(:get, ticker_url(symbol)).to_return(params)
+  end
+
+  def stub_listings
+    stub_request(:get, listings_url).to_return(body: json({
+      data: [
+        { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' },
+        { id: 5, name: 'Ripple', symbol: 'XRP', website_slug: 'ripple' },
+        { id: 10, name: 'Monero', symbol: 'XMR', website_slug: 'monero' },
+        { id: 20, name: 'Request Network', symbol: 'REQ', website_slug: 'request-network' }
+      ],
+      metadata: {}
+    }))
+  end
+
+  describe '#load_listings' do
+    context 'when a correct response is returned' do
+      before { stub_listings }
+
+      it 'should build the @id_map' do
+        subject.load_listings
+
+        id_map = subject.instance_variable_get('@id_map')
+        id_map.should be_a(Hash)
+        id_map.keys.sort.should == ['bitcoin', 'monero', 'request-network', 'ripple']
+
+        id_map['ripple'].should_not be_nil
+        id_map['ripple'].numeric_id.should == 5
+        id_map['ripple'].symbol.should == 'XRP'
+        id_map['ripple'].name.should == 'Ripple'
+        id_map['ripple'].text_id.should == 'ripple'
+      end
+
+      it 'should build the @symbol_map' do
+        subject.load_listings
+
+        symbol_map = subject.instance_variable_get('@symbol_map')
+        symbol_map.should be_a(Hash)
+        symbol_map.keys.sort.should == ['BTC', 'REQ', 'XMR', 'XRP']
+
+        symbol_map['XRP'].should_not be_nil
+        symbol_map['XRP'].numeric_id.should == 5
+        symbol_map['XRP'].symbol.should == 'XRP'
+        symbol_map['XRP'].name.should == 'Ripple'
+        symbol_map['XRP'].text_id.should == 'ripple'
+      end
+
+      it 'should return the number of listings' do
+        subject.load_listings.should == listings.length
+      end
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub_request(:get, listings_url).to_return(body: json({
+        data: [{ id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin', json_class: 'Exploit' }],
+        metadata: {}
+      }))
+
+      subject.load_listings
+    end
+
+    it 'should send user agent headers' do
+      stub_listings
+
+      subject.load_listings
+
+      WebMock.should have_requested(:get, listings_url).with(headers: user_agent_header)
+    end
+
+    context 'when called a second time' do
+      before { stub_listings }
+
+      it 'should make another request' do
+        2.times { subject.load_listings }
+
+        WebMock.should have_requested(:get, listings_url).twice
+      end
+    end
+
+    context 'when the json object is not a hash' do
+      before do
+        stub_request(:get, listings_url).to_return(body: json(
+          [{ id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' }]
+        ))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.load_listings
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include a data field' do
+      before do
+        stub_request(:get, listings_url).to_return(body: json({
+          metadata: {
+            time: 1234
+          }
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.load_listings
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include a metadata field' do
+      before do
+        stub_request(:get, listings_url).to_return(body: json({
+          data: [
+            { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' }
+          ]
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.load_listings
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the data object is not an array' do
+      before do
+        stub_request(:get, listings_url).to_return(body: json(
+          {
+            data: {
+              id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin'
+            },
+            metadata: {
+              error: nil
+            }
+          }
+        ))
+      end
+
+      it 'should throw JSONError' do
+        proc {
+          subject.load_listings
+        }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    [:id, :name, :symbol, :website_slug].each do |key|
+      context "when the record object does not include a(n) #{key}" do
+        before do
+          record = { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' }
+          record.delete(key)
+
+          stub_request(:get, listings_url).to_return(body: json({
+            data: [record],
+            metadata: {}
+          }))
+        end
+
+        it 'should throw JSONError' do
+          proc {
+            subject.load_listings
+          }.should raise_error(CoinTools::JSONError)
+        end
+      end
+    end
+
+    context 'when the metadata field includes an error' do
+      before do
+        stub_request(:get, listings_url).to_return(body: json(
+          {
+            data: [
+              { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' }
+            ],
+            metadata: {
+              error: 'something went wrong'
+            }
+          }
+        ))
+      end
+
+      it 'should throw BadRequestError' do
+        proc {
+          subject.load_listings
+        }.should raise_error(CoinTools::BadRequestError)
+      end
+    end
+
+    context 'when status 4xx is returned' do
+      before do
+        stub_request(:get, listings_url).to_return(status: [400, 'Bad Request'])
+      end
+
+      it 'should throw BadRequestError' do
+        proc {
+          subject.load_listings
+        }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
+      end
+    end
+
+    context 'when status 5xx is returned' do
+      before do
+        stub_request(:get, listings_url).to_return(status: [500, 'Internal Server Error'])
+      end
+
+      it 'should throw ServiceUnavailableError' do
+        proc {
+          subject.load_listings
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
+      end
+    end
+  end
+
+  describe 'id_map' do
+    before { stub_listings }
+
+    context 'if listings were not loaded' do
+      it 'should load listings' do
+        subject.id_map
+
+        WebMock.should have_requested(:get, listings_url).once
+      end
+
+      it 'should return an id map' do
+        subject.id_map.should be_an(Hash)
+        subject.id_map.length.should == 4
+        subject.id_map.keys.sort.should == ['bitcoin', 'monero', 'request-network', 'ripple']
+      end
+    end
+
+    context 'if listings were loaded before' do
+      before { subject.load_listings }
+
+      it 'should not load them again' do
+        subject.id_map
+
+        WebMock.should have_requested(:get, listings_url).once
+      end
+
+      it 'should return an id map' do
+        subject.id_map.should be_an(Hash)
+        subject.id_map.length.should == 4
+        subject.id_map.keys.sort.should == ['bitcoin', 'monero', 'request-network', 'ripple']
+      end
+    end
+  end
+
+  describe 'symbol_map' do
+    before { stub_listings }
+
+    context 'if listings were not loaded' do
+      it 'should load listings' do
+        subject.symbol_map
+
+        WebMock.should have_requested(:get, listings_url).once
+      end
+
+      it 'should return a symbol map' do
+        subject.symbol_map.should be_an(Hash)
+        subject.symbol_map.length.should == 4
+        subject.symbol_map.keys.sort.should == ['BTC', 'REQ', 'XMR', 'XRP']
+      end
+    end
+
+    context 'if listings were loaded before' do
+      before { subject.load_listings }
+
+      it 'should not load them again' do
+        subject.symbol_map
+
+        WebMock.should have_requested(:get, listings_url).once
+      end
+
+      it 'should return a symbol map' do
+        subject.symbol_map.should be_an(Hash)
+        subject.symbol_map.length.should == 4
+        subject.symbol_map.keys.sort.should == ['BTC', 'REQ', 'XMR', 'XRP']
+      end
+    end
   end
 
   describe '#get_price' do

@@ -62,6 +62,8 @@ module CoinTools
           @id_map[listing.text_id] = listing
           @symbol_map[listing.symbol] = listing
         end
+
+        json['data'].length
       when Net::HTTPClientError
         raise BadRequestError.new(response)
       else
