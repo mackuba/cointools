@@ -207,6 +207,8 @@ module CoinTools
             raise JSONError.new(response, e.message)
           end
 
+          yield new_batch if block_given?
+
           coins.concat(new_batch)
         when Net::HTTPNotFound
           break
