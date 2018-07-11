@@ -18,7 +18,17 @@ module CoinTools
       'ZAR'
     ]
 
-    Listing = BaseStruct.make(:numeric_id, :name, :symbol, :text_id)
+    class Listing
+      attr_reader :numeric_id, :name, :symbol, :text_id
+
+      def initialize(json)
+        @numeric_id = json['id']
+        @name = json['name']
+        @symbol = json['symbol']
+        @text_id = json['website_slug']
+      end
+    end
+
     DataPoint = BaseStruct.make(:time, :usd_price, :btc_price, :converted_price)
 
     def symbol_map
@@ -47,12 +57,7 @@ module CoinTools
         @symbol_map = {}
 
         json['data'].each do |record|
-          listing = Listing.new(
-            numeric_id: record['id'], 
-            name: record['name'],
-            symbol: record['symbol'],
-            text_id: record['website_slug']
-          )
+          listing = Listing.new(record)
 
           # TODO: JSONError vs. NoDataError? + error class docs
           unless listing.numeric_id && listing.name && listing.symbol && listing.text_id
