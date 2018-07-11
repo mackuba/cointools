@@ -217,7 +217,7 @@ module CoinTools
         end
       end
 
-      coins
+      coins.sort_by(&:rank)
     end
 
 
