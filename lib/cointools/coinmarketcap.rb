@@ -22,6 +22,10 @@ module CoinTools
       attr_reader :numeric_id, :name, :symbol, :text_id
 
       def initialize(json)
+        [:id, :name, :symbol, :website_slug].each do |key|
+          raise ArgumentError.new("Missing #{key} field") unless json[key.to_s]
+        end
+
         @numeric_id = json['id']
         @name = json['name']
         @symbol = json['symbol']
@@ -29,7 +33,47 @@ module CoinTools
       end
     end
 
-    DataPoint = BaseStruct.make(:time, :usd_price, :btc_price, :converted_price)
+    class CoinData < Listing
+      attr_reader :last_updated, :usd_price, :btc_price, :converted_price, :rank, :market_cap
+
+      def initialize(json, convert_to = nil)
+        super(json)
+
+        raise ArgumentError.new('Missing rank field') unless json['rank']
+        raise ArgumentError.new('Invalid rank field') unless json['rank'].is_a?(Integer) && json['rank'] > 0
+        @rank = json['rank']
+
+        quotes = json['quotes']
+        raise ArgumentError.new('Missing quotes field') unless quotes
+        raise ArgumentError.new('Invalid quotes field') unless quotes.is_a?(Hash)
+
+        usd_quote = quotes['USD']
+        raise ArgumentError.new('Missing USD quote info') unless usd_quote
+        raise ArgumentError.new('Invalid USD quote info') unless usd_quote.is_a?(Hash)
+
+        @usd_price = usd_quote['price']&.to_f
+        @market_cap = usd_quote['market_cap']&.to_f
+
+        if convert_to
+          converted_quote = quotes[convert_to.upcase]
+
+          if converted_quote
+            raise ArgumentError.new("Invalid #{convert_to.upcase} quote info") unless converted_quote.is_a?(Hash)
+            @converted_price = converted_quote['price']&.to_f
+          end
+        else
+          btc_quote = quotes['BTC']
+
+          if btc_quote
+            raise ArgumentError.new("Invalid BTC quote info") unless btc_quote.is_a?(Hash)
+            @btc_price = btc_quote['price']&.to_f
+          end
+        end
+
+        timestamp = json['last_updated']
+        @last_updated = Time.at(timestamp) if timestamp
+      end
+    end
 
     def symbol_map
       load_listings if @symbol_map.nil?
@@ -56,16 +100,16 @@ module CoinTools
         @id_map = {}
         @symbol_map = {}
 
-        json['data'].each do |record|
-          listing = Listing.new(record)
+        begin
+          json['data'].each do |record|
+            listing = Listing.new(record)
 
-          # TODO: JSONError vs. NoDataError? + error class docs
-          unless listing.numeric_id && listing.name && listing.symbol && listing.text_id
-            raise JSONError.new(response, "Missing field in record: #{record}")
+            @id_map[listing.text_id] = listing
+            @symbol_map[listing.symbol] = listing
           end
-
-          @id_map[listing.text_id] = listing
-          @symbol_map[listing.symbol] = listing
+        rescue ArgumentError => e
+          # TODO: JSONError vs. NoDataError? + error class docs
+          raise JSONError.new(response, e.message)
         end
 
         json['data'].length
@@ -102,8 +146,7 @@ module CoinTools
       url = URI("#{BASE_URL}/v2/ticker/#{listing.numeric_id}/")
 
       if convert_to
-        currency = convert_to.upcase
-        url.query = "convert=#{currency}"
+        url.query = "convert=#{convert_to}"
       else
         url.query = "convert=BTC"
       end
@@ -119,23 +162,11 @@ module CoinTools
         record = json['data']
         raise JSONError.new(response) unless record.is_a?(Hash)
 
-        quotes = record['quotes']
-        raise JSONError.new(response, 'Missing quotes field') unless quotes.is_a?(Hash)
-
-        usd_price = quotes['USD'] && quotes['USD']['price']&.to_f
-        btc_price = quotes['BTC'] && quotes['BTC']['price']&.to_f
-        timestamp = Time.at(record['last_updated'].to_i)
-
-        if currency
-          converted_price = quotes[currency] && quotes[currency]['price']&.to_f
+        begin
+          return CoinData.new(record, convert_to)
+        rescue ArgumentError => e
+          raise JSONError.new(response, e.message)
         end
-
-        return DataPoint.new(
-          time: timestamp,
-          usd_price: usd_price,
-          btc_price: btc_price,
-          converted_price: converted_price
-        )
       when Net::HTTPNotFound
         raise UnknownCoinError.new(response)
       when Net::HTTPClientError
@@ -149,9 +180,8 @@ module CoinTools
       url = URI("#{BASE_URL}/v2/ticker/?structure=array&sort=id&limit=100")
 
       if convert_to
-        currency = convert_to.upcase
         validate_fiat_currency(convert_to)
-        url.query += "&convert=#{currency}"
+        url.query += "&convert=#{convert_to}"
       else
         url.query += "&convert=BTC"
       end
@@ -171,27 +201,10 @@ module CoinTools
           raise NoDataError.new(response, json['metadata']['error']) if json['metadata']['error']
           raise JSONError.new(response) unless json['data'].is_a?(Array)
 
-          new_batch = json['data'].map do |record|
-            quotes = record['quotes']
-            raise JSONError.new(response, 'Missing quotes field') unless quotes
-
-            id = record['website_slug']
-            raise JSONError.new(response, 'Missing id field') unless id
-
-            usd_price = quotes['USD'] && quotes['USD']['price']&.to_f
-            btc_price = quotes['BTC'] && quotes['BTC']['price']&.to_f
-            timestamp = Time.at(record['last_updated'].to_i)
-
-            if currency
-              converted_price = quotes[currency] && quotes[currency]['price']&.to_f
-            end
-
-            DataPoint.new(
-              time: timestamp,
-              usd_price: usd_price,
-              btc_price: btc_price,
-              converted_price: converted_price
-            )
+          begin
+            new_batch = json['data'].map { |record| CoinData.new(record, convert_to) }
+          rescue ArgumentError => e
+            raise JSONError.new(response, e.message)
           end
 
           coins.concat(new_batch)

@@ -4,15 +4,15 @@ describe CoinTools::CoinMarketCap do
   subject { CoinTools::CoinMarketCap.new }
 
   let(:timestamp) { Time.now.round - 300 }
-  let(:last_updated) { timestamp.to_i.to_s }
+  let(:last_updated) { timestamp.to_i }
   let(:full_ticker_url) { "https://api.coinmarketcap.com/v1/ticker/?limit=0" }
   let(:listings_url) { "https://api.coinmarketcap.com/v2/listings/" }
 
   let(:listings) {[
-    { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' },
-    { id: 2, name: 'Ethereum', symbol: 'ETH', website_slug: 'ethereum' },
-    { id: 10, name: 'Monero', symbol: 'XMR', website_slug: 'monero' },
-    { id: 20, name: 'Request Network', symbol: 'REQ', website_slug: 'request-network' }
+    { id: 1, rank: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' },
+    { id: 5, rank: 3, name: 'Ripple', symbol: 'XRP', website_slug: 'ripple' },
+    { id: 10, rank: 12, name: 'Monero', symbol: 'XMR', website_slug: 'monero' },
+    { id: 20, rank: 50, name: 'Request Network', symbol: 'REQ', website_slug: 'request-network' }
   ]}
 
   def ticker_url(id, currency)
@@ -25,12 +25,7 @@ describe CoinTools::CoinMarketCap do
 
   def stub_listings
     stub_request(:get, listings_url).to_return(body: json({
-      data: [
-        { id: 1, name: 'Bitcoin', symbol: 'BTC', website_slug: 'bitcoin' },
-        { id: 5, name: 'Ripple', symbol: 'XRP', website_slug: 'ripple' },
-        { id: 10, name: 'Monero', symbol: 'XMR', website_slug: 'monero' },
-        { id: 20, name: 'Request Network', symbol: 'REQ', website_slug: 'request-network' }
-      ],
+      data: listings,
       metadata: {}
     }))
   end
@@ -322,13 +317,13 @@ describe CoinTools::CoinMarketCap do
     context 'when a correct response is returned' do
       before do
         stub_ticker(1, 'BTC', body: json({
-          data: {
+          data: listings[0].merge({
             quotes: {
               'USD': { price: '8000.0' },
               'BTC': { price: '1.0' },
             },
             last_updated: last_updated
-          },
+          }),
           metadata: {}
         }))
       end
@@ -336,7 +331,7 @@ describe CoinTools::CoinMarketCap do
       it 'should return a data point' do
         data = subject.send(method, param)
 
-        data.time.should == timestamp
+        data.last_updated.should == timestamp
         data.usd_price.should == 8000.0
         data.btc_price.should == 1.0
         data.converted_price.should be_nil
@@ -345,10 +340,10 @@ describe CoinTools::CoinMarketCap do
 
     it 'should send user agent headers' do
       stub_ticker(1, 'BTC', body: json({
-        data: {
+        data: listings[0].merge({
           quotes: { 'USD': { price: '8000.0' }},
           last_updated: last_updated
-        },
+        }),
         metadata: {}
       }))
 
@@ -361,10 +356,10 @@ describe CoinTools::CoinMarketCap do
       Exploit.should_not_receive(:json_creatable?)
 
       stub_ticker(1, 'BTC', body: json({
-        data: {
+        data: listings[0].merge({
           quotes: { 'USD': { price: '8000.0', json_class: 'Exploit' }},
           last_updated: last_updated
-        },
+        }),
         metadata: {}
       }))
 
@@ -400,13 +395,13 @@ describe CoinTools::CoinMarketCap do
     context 'when the json object does not include a metadata field' do
       before do
         stub_ticker(1, 'BTC', body: json({
-          data: {
+          data: listings[0].merge({
             quotes: {
               'USD': { price: '8000.0' },
               'BTC': { price: '1.0' },
             },
             last_updated: last_updated
-          }
+          })
         }))
       end
 
@@ -450,10 +445,10 @@ describe CoinTools::CoinMarketCap do
     context 'when the quotes list is missing' do
       before do
         stub_ticker(1, 'BTC', body: json({
-          data: {
+          data: listings[0].merge({
             quotes: nil,
             last_updated: last_updated
-          },
+          }),
           metadata: {}
         }))
       end
@@ -468,13 +463,13 @@ describe CoinTools::CoinMarketCap do
     context 'when the quotes list is not a hash' do
       before do
         stub_ticker(1, 'BTC', body: json({
-          data: {
+          data: listings[0].merge({
             quotes: [
               { 'USD': { price: '8000.0' }},
               { 'BTC': { price: '1.0' }},
             ],
             last_updated: last_updated
-          },
+          }),
           metadata: {}
         }))
       end
@@ -526,13 +521,13 @@ describe CoinTools::CoinMarketCap do
       context 'when a correct response is returned' do
         before do
           stub_ticker(1, 'EUR', body: json({
-            data: {
+            data: listings[0].merge({
               quotes: {
                 'USD': { price: '8000.0' },
                 'EUR': { price: '6000.0' },
               },
               last_updated: last_updated
-            },
+            }),
             metadata: {}
           }))
         end
@@ -540,7 +535,7 @@ describe CoinTools::CoinMarketCap do
         it 'should return a data point with converted price' do
           data = subject.send(method, param, convert_to: 'EUR')
 
-          data.time.should == timestamp
+          data.last_updated.should == timestamp
           data.usd_price.should == 8000.0
           data.btc_price.should be_nil
           data.converted_price.should == 6000.0
@@ -566,13 +561,13 @@ describe CoinTools::CoinMarketCap do
       context 'when converted price is not included' do
         before do
           stub_ticker(1, 'EUR', body: json({
-            data: {
+            data: listings[0].merge({
               quotes: {
                 'USD': { price: '8000.0' },
                 'PLN': { price: '30000.0' },
               },
               last_updated: last_updated
-            },
+            }),
             metadata: {}
           }))
         end
