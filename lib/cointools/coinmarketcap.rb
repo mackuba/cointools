@@ -152,11 +152,11 @@ module CoinTools
       end
 
       start = 0
-      coins = {}
+      coins = []
 
       loop do
         page_url = url.clone
-        page_url.query += "&start=#{start}"
+        page_url.query += "&start=#{coins.length}"
         response = make_request(page_url)
 
         case response
@@ -166,7 +166,7 @@ module CoinTools
           raise NoDataError.new(response, json['metadata']['error']) if json['metadata']['error']
           raise JSONError.new(response) unless json['data'].is_a?(Array)
 
-          json['data'].each do |record|
+          new_batch = json['data'].map do |record|
             quotes = record['quotes']
             raise JSONError.new(response, 'Missing quotes field') unless quotes
 
@@ -181,7 +181,7 @@ module CoinTools
               converted_price = quotes[currency] && quotes[currency]['price']&.to_f
             end
 
-            coins[id] = DataPoint.new(
+            DataPoint.new(
               time: timestamp,
               usd_price: usd_price,
               btc_price: btc_price,
@@ -189,7 +189,7 @@ module CoinTools
             )
           end
 
-          start += json['data'].length
+          coins.concat(new_batch)
         when Net::HTTPNotFound
           break
         when Net::HTTPClientError
