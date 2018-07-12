@@ -1,7 +1,7 @@
 require_relative 'base_struct'
 require_relative 'errors'
+require_relative 'request'
 require_relative 'utils'
-require_relative 'version'
 
 require 'net/http'
 require 'uri'
@@ -9,7 +9,6 @@ require 'uri'
 module CoinTools
   class CoinMarketCap
     BASE_URL = "https://api.coinmarketcap.com"
-    USER_AGENT = "cointools/#{CoinTools::VERSION}"
 
     FIAT_CURRENCIES = [
       'AUD', 'BRL', 'CAD', 'CHF', 'CLP', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP',
@@ -88,7 +87,7 @@ module CoinTools
     def load_listings
       url = URI("#{BASE_URL}/v2/listings/")
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -148,7 +147,7 @@ module CoinTools
         url.query = "convert=BTC"
       end
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -200,7 +199,7 @@ module CoinTools
     def fetch_full_ticker_page(base_url, convert_to, start)
       url = base_url.clone
       url.query += "&start=#{start}"
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -236,15 +235,6 @@ module CoinTools
       raise JSONError.new(response) unless json['data'].is_a?(expected_data_type)
 
       json['data']
-    end
-
-    def make_request(url)
-      Net::HTTP.start(url.host, url.port, use_ssl: true) do |http|
-        request = Net::HTTP::Get.new(url)
-        request['User-Agent'] = USER_AGENT
-
-        http.request(request)
-      end
     end
   end
 end

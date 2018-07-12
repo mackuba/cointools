@@ -1,7 +1,7 @@
 require_relative 'base_struct'
 require_relative 'errors'
+require_relative 'request'
 require_relative 'utils'
-require_relative 'version'
 
 require 'net/http'
 require 'uri'
@@ -9,11 +9,9 @@ require 'uri'
 module CoinTools
   class CoinCap
     BASE_URL = "https://coincap.io"
-    USER_AGENT = "cointools/#{CoinTools::VERSION}"
+    PERIODS = [1, 7, 30, 90, 180, 365]
 
     DataPoint = BaseStruct.make(:time, :usd_price, :eur_price, :btc_price)
-
-    PERIODS = [1, 7, 30, 90, 180, 365]
 
 
     def get_price(symbol, time = nil)
@@ -36,7 +34,7 @@ module CoinTools
         url = URI("#{BASE_URL}/history/#{symbol.upcase}")
       end
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -66,7 +64,7 @@ module CoinTools
 
       url = URI("#{BASE_URL}/page/#{symbol.upcase}")
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -92,15 +90,6 @@ module CoinTools
 
 
     private
-
-    def make_request(url)
-      Net::HTTP.start(url.host, url.port, use_ssl: true) do |http|
-        request = Net::HTTP::Get.new(url)
-        request['User-Agent'] = USER_AGENT
-
-        http.request(request)
-      end
-    end
 
     def best_matching_record(data, unixtime)
       millitime = unixtime * 1000

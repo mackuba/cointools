@@ -1,7 +1,7 @@
 require_relative 'base_struct'
 require_relative 'errors'
+require_relative 'request'
 require_relative 'utils'
-require_relative 'version'
 
 require 'net/http'
 require 'uri'
@@ -9,15 +9,15 @@ require 'uri'
 module CoinTools
   class Cryptowatch
     BASE_URL = "https://api.cryptowat.ch"
-    USER_AGENT = "cointools/#{CoinTools::VERSION}"
-
-    DataPoint = BaseStruct.make(:price, :time, :api_time_spent, :api_time_remaining)
 
     # we expect this many days worth of data for a given period precision (in seconds); NOT guaranteed by the API
     DAYS_FOR_PERIODS = {
       60 => 3, 180 => 10, 300 => 15, 900 => 2 * 30, 1800 => 4 * 30, 3600 => 8 * 30,
       7200 => 365, 14400 => 1.5 * 365, 21600 => 2 * 365, 43200 => 3 * 365, 86400 => 4 * 365
     }
+
+    DataPoint = BaseStruct.make(:price, :time, :api_time_spent, :api_time_remaining)
+
 
     def exchanges
       @exchanges ||= get_exchanges
@@ -28,7 +28,7 @@ module CoinTools
 
       url = URI("#{BASE_URL}/markets/#{exchange}")
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -62,7 +62,7 @@ module CoinTools
       current_time = Time.now.to_i
       url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/ohlc?after=#{unixtime}")
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -99,7 +99,7 @@ module CoinTools
 
       url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/price")
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -151,7 +151,7 @@ module CoinTools
       current_time = Time.now.to_i
       url = URI("#{BASE_URL}/markets/#{exchange}/#{market}/ohlc?after=#{unixtime}&periods=#{period}")
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
@@ -184,15 +184,6 @@ module CoinTools
 
 
     private
-
-    def make_request(url)
-      Net::HTTP.start(url.host, url.port, use_ssl: true) do |http|
-        request = Net::HTTP::Get.new(url)
-        request['User-Agent'] = USER_AGENT
-
-        http.request(request)
-      end
-    end
 
     def best_matching_record(data, unixtime, request_time)
       candidates = []
@@ -236,7 +227,7 @@ module CoinTools
     def get_exchanges
       url = URI("#{BASE_URL}/exchanges")
 
-      response = make_request(url)
+      response = Request.get(url)
 
       case response
       when Net::HTTPSuccess
