@@ -1,6 +1,8 @@
 require 'spec_helper'
 
 describe CoinTools::Cryptowatch do
+  include TestHelpers
+
   subject { CoinTools::Cryptowatch.new }
 
   let(:exchanges_url) { "https://api.cryptowat.ch/exchanges" }

@@ -9,12 +9,14 @@ RSpec.configure do |config|
   config.mock_with(:rspec) { |m| m.syntax = :should }
 end
 
-def json(hash)
-  JSON.generate(hash)
-end
+module TestHelpers
+  def json(hash)
+    JSON.generate(hash)
+  end
 
-def user_agent_header
-  { 'User-Agent' => "cointools/#{CoinTools::VERSION}" }
+  def user_agent_header
+    { 'User-Agent' => "cointools/#{CoinTools::VERSION}" }
+  end
 end
 
 class Exploit

@@ -1,6 +1,8 @@
 require 'spec_helper'
 
 describe CoinTools::CoinCap do
+  include TestHelpers
+
   subject { CoinTools::CoinCap.new }
 
   let(:some_data_point) { [1527089745158, 200.0] }

@@ -1,6 +1,8 @@
 require 'spec_helper'
 
 describe CoinTools::CoinMarketCap do
+  include TestHelpers
+
   subject { CoinTools::CoinMarketCap.new }
 
   let(:timestamp) { Time.now.round - 300 }
