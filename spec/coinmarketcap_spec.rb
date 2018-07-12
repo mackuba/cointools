@@ -5,7 +5,6 @@ describe CoinTools::CoinMarketCap do
 
   let(:timestamp) { Time.now.round - 300 }
   let(:last_updated) { timestamp.to_i }
-  let(:full_ticker_url) { "https://api.coinmarketcap.com/v1/ticker/?limit=0" }
   let(:listings_url) { "https://api.coinmarketcap.com/v2/listings/" }
 
   let(:listings) {[
@@ -17,6 +16,10 @@ describe CoinTools::CoinMarketCap do
 
   def ticker_url(id, currency)
     "https://api.coinmarketcap.com/v2/ticker/#{id}/?convert=#{currency}"
+  end
+
+  def full_ticker_url(currency, start)
+    "https://api.coinmarketcap.com/v2/ticker/?structure=array&sort=id&limit=100&convert=#{currency}&start=#{start}"
   end
 
   def stub_ticker(numeric_id, currency, params)
@@ -442,6 +445,54 @@ describe CoinTools::CoinMarketCap do
       end
     end
 
+    context 'when the rank field is missing' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: listings[0].merge({
+            rank: nil,
+            last_updated: last_updated
+          }),
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the rank field is not an integer' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: listings[0].merge({
+            rank: '*',
+            last_updated: last_updated
+          }),
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the rank field is not a positive number' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: listings[0].merge({
+            rank: 0,
+            last_updated: last_updated
+          }),
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
     context 'when the quotes list is missing' do
       before do
         stub_ticker(1, 'BTC', body: json({
@@ -454,9 +505,7 @@ describe CoinTools::CoinMarketCap do
       end
 
       it 'should throw JSONError' do
-        proc {
-          subject.send(method, param)
-        }.should raise_error(CoinTools::JSONError)
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
       end
     end
 
@@ -475,9 +524,112 @@ describe CoinTools::CoinMarketCap do
       end
 
       it 'should throw JSONError' do
-        proc {
-          subject.send(method, param)
-        }.should raise_error(CoinTools::JSONError)
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the quotes info for USD is missing' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: listings[0].merge({
+            quotes: {
+              'USD': nil,
+              'BTC': { price: '1.0' },
+            },
+            last_updated: last_updated
+          }),
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the quotes info for USD is not a hash' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: listings[0].merge({
+            quotes: {
+              'USD': 8000.0,
+              'BTC': { price: '1.0' },
+            },
+            last_updated: last_updated
+          }),
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the quotes info for BTC is missing' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: listings[0].merge({
+            quotes: {
+              'USD': { price: 8000.0 },
+              'BTC': nil,
+            },
+            last_updated: last_updated
+          }),
+          metadata: {}
+        }))
+      end
+
+      it 'should return a nil price' do
+        data = nil
+
+        proc { data = subject.send(method, param) }.should_not raise_error
+
+        data.btc_price.should be_nil
+      end
+    end
+
+    context 'when the quotes info for BTC is not a hash' do
+      before do
+        stub_ticker(1, 'BTC', body: json({
+          data: listings[0].merge({
+            quotes: {
+              'USD': { price: '8000.0' },
+              'BTC': 1
+            },
+            last_updated: last_updated
+          }),
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    [:id, :name, :symbol, :website_slug].each do |key|
+      context "when the record object does not include a(n) #{key} key" do
+        before do
+          data = {
+            data: listings[0].merge({
+              quotes: {
+                'USD': { price: '8000.0' },
+                'BTC': { price: '1.0' },
+              },
+              last_updated: last_updated
+            }),
+            metadata: {}
+          }
+
+          data[:data][key] = nil
+
+          stub_ticker(1, 'BTC', body: json(data))
+        end
+
+        it 'should throw JSONError' do
+          proc { subject.send(method, param) }.should raise_error(CoinTools::JSONError)
+        end
       end
     end
 
@@ -542,6 +694,29 @@ describe CoinTools::CoinMarketCap do
         end
       end
 
+      context 'when a lowercase currency code is passed' do
+        before do
+          stub_ticker(1, 'EUR', body: json({
+            data: listings[0].merge({
+              quotes: {
+                'USD': { price: '8000.0' },
+                'EUR': { price: '6000.0' },
+              },
+              last_updated: last_updated
+            }),
+            metadata: {}
+          }))
+        end
+
+        it 'should make it uppercase' do
+          data = subject.send(method, param, convert_to: 'eur')
+
+          data.usd_price.should == 8000.0
+          data.btc_price.should be_nil
+          data.converted_price.should == 6000.0
+        end
+      end
+
       context 'when an unknown fiat currency code is passed' do
         it 'should not make any requests' do
           stub_request(:any, //)
@@ -576,7 +751,26 @@ describe CoinTools::CoinMarketCap do
           data = subject.send(method, param, convert_to: 'EUR')
           data.converted_price.should be_nil
         end
-      end      
+      end
+
+      context 'when converted price quote is not a hash' do
+        before do
+          stub_ticker(1, 'EUR', body: json({
+            data: listings[0].merge({
+              quotes: {
+                'USD': { price: '8000.0' },
+                'EUR': 7000.0,
+              },
+              last_updated: last_updated
+            }),
+            metadata: {}
+          }))
+        end
+
+        it 'should throw JSONError' do
+          proc { subject.send(method, param, convert_to: 'EUR') }.should raise_error(CoinTools::JSONError)
+        end
+      end
     end
   end
 
@@ -600,6 +794,477 @@ describe CoinTools::CoinMarketCap do
         proc {
           subject.get_price('BCC')  # hey hey heyyy!!
         }.should raise_error(CoinTools::InvalidSymbolError)
+      end
+    end
+  end
+
+  describe '#get_all_prices' do
+    let(:number_of_coins) { 250 }
+
+    let(:listings) {
+      ids = (1..(number_of_coins*2)).to_a.shuffle.first(number_of_coins).sort
+
+      (1..number_of_coins).map { |n|
+        id = ids.shift
+
+        {
+          'id' => id,
+          'name' => "Coin #{id}",
+          'symbol' => "C#{id.to_s.rjust(3, '0')}",
+          'website_slug' => "c-#{id.to_s.rjust(3, '0')}"
+        }
+      }
+    }
+
+    def all_data(convert_to)
+      ranks = (1..number_of_coins).to_a.shuffle
+
+      (0...number_of_coins).map { |n|
+        listings[n].merge({
+          'rank' => ranks.shift,
+          'last_updated' => last_updated,
+          'quotes' => {
+            'USD' => {
+              'price' => rand(10000),
+              'market_cap' => rand(1_000_000_000),
+            },
+            convert_to => {
+              'price' => convert_to == 'BTC' ? rand : rand(10000),
+            },
+          },
+        })
+      }
+    end
+
+    let(:btc_data) { all_data('BTC') }
+    let(:eur_data) { all_data('EUR') }
+
+    def stub_full_ticker(convert_to, start, data, params = {})
+      stub_request(:get, full_ticker_url(convert_to, start)).to_return({
+        body: json({
+          data: data,
+          metadata: {}
+        })
+      }.merge(params))
+    end
+
+    before do
+      stub_request(:get, listings_url).to_return(body: json({
+        data: listings,
+        metadata: {}
+      }))
+    end
+
+    context 'when all pages return data correctly' do
+      before do
+        stub_full_ticker('BTC', 0, btc_data[0...100])
+        stub_full_ticker('BTC', 100, btc_data[100...200])
+        stub_full_ticker('BTC', 200, btc_data[200...250])
+        stub_full_ticker('BTC', 250, nil, { status: [404, 'Not Found'] })
+      end
+
+      it 'should return a list of all coins, sorted by rank' do
+        data = subject.get_all_prices
+
+        data.should be_an(Array)
+        data.length.should == number_of_coins
+
+        sorted_json = btc_data.sort_by { |j| j['rank'] }
+
+        data.each_with_index do |coin, i|
+          json = sorted_json[i]
+          coin.numeric_id.should == json['id']
+          coin.name.should == json['name']
+          coin.symbol.should == json['symbol']
+          coin.text_id.should == json['website_slug']
+          coin.rank.should == json['rank']
+          coin.usd_price.should == json['quotes']['USD']['price']
+          coin.btc_price.should == json['quotes']['BTC']['price']
+          coin.market_cap.should == json['quotes']['USD']['market_cap']
+        end
+      end
+    end
+
+    it 'should send user agent headers' do
+      stub_full_ticker('BTC', 0, btc_data[0...10])
+      stub_full_ticker('BTC', 10, nil, { status: [404, 'Not Found'] })
+
+      subject.get_all_prices
+
+      WebMock.should have_requested(:get, full_ticker_url('BTC', 0)).with(headers: user_agent_header)
+      WebMock.should have_requested(:get, full_ticker_url('BTC', 10)).with(headers: user_agent_header)
+    end
+
+    it 'should not use the unsafe method JSON.load' do
+      Exploit.should_not_receive(:json_creatable?)
+
+      stub_full_ticker('BTC', 0, [btc_data[0].merge(json_class: 'Exploit')])
+      stub_full_ticker('BTC', 1, nil, { status: [404, 'Not Found'] })
+
+      subject.get_all_prices
+    end
+
+    context 'if an empty page is returned' do
+      before do
+        stub_full_ticker('BTC', 0, btc_data[0...100])
+        stub_full_ticker('BTC', 100, btc_data[100...200])
+        stub_full_ticker('BTC', 200, []).then.to_raise(StandardError.new('unexpected second request'))
+      end
+
+      it 'should stop downloading and return the data' do
+        data = nil
+
+        proc { data = subject.get_all_prices }.should_not raise_error
+
+        data.should be_an(Array)
+        data.length.should == 200
+      end
+    end
+
+    context 'if a block is passed' do
+      before do
+        stub_full_ticker('BTC', 0, btc_data[0...100])
+        stub_full_ticker('BTC', 100, btc_data[100...120])
+        stub_full_ticker('BTC', 120, nil, { status: [404, 'Not Found'] })
+      end
+
+      it 'should yield each batch separately to the block' do
+        received = []
+        subject.get_all_prices { |b| received << b }
+
+        received.length.should == 2
+        received[0].should be_an(Array)
+        received[1].should be_an(Array)
+        received[0].map(&:numeric_id).should == btc_data[0...100].map { |j| j['id'] }
+        received[1].map(&:numeric_id).should == btc_data[100...120].map { |j| j['id'] }
+      end
+    end
+
+    context 'when the json object is not a hash' do
+      before do
+        stub_full_ticker('BTC', 0, nil, body: json([{}]))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include a data field' do
+      before do
+        stub_full_ticker('BTC', 0, nil, body: json({
+          metadata: {}
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the json object does not include a metadata field' do
+      before do
+        stub_full_ticker('BTC', 0, nil, body: json({
+          data: [btc_data[0]],
+          metadata: nil
+        }))
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the data object is not an array' do
+      before do
+        stub_full_ticker('BTC', 0, btc_data[0])
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'when the metadata field includes an error' do
+      before do
+        stub_full_ticker('BTC', 0, nil, body: json({
+          data: nil,
+          metadata: { error: 'funds are not safu' }
+        }))
+      end
+
+      it 'should throw BadRequestError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::BadRequestError)
+      end
+    end
+
+    context 'if the rank field is missing in json' do
+      before do
+        data = btc_data[0...10]
+        data[6]['rank'] = nil
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the rank field is not an integer' do
+      before do
+        data = btc_data[0...10]
+        data[8]['rank'] = 'one'
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the rank field is negative' do
+      before do
+        data = btc_data[0...10]
+        data[2]['rank'] = -5
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the quotes field is missing' do
+      before do
+        data = btc_data[0...10]
+        data[2].delete('quotes')
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the quotes field is not a hash' do
+      before do
+        data = btc_data[0...10]
+        data[2]['quotes'] = [8000, 0.5]
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the quotes hash does not include USD' do
+      before do
+        data = btc_data[0...10]
+        data[8]['quotes']['USD'] = nil
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the quotes info for USD is not a hash' do
+      before do
+        data = btc_data[0...10]
+        data[8]['quotes']['USD'] = [8000, 0.5]
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the quotes hash does not include BTC' do
+      before do
+        data = btc_data[0...10]
+        data[8]['quotes']['BTC'] = nil
+        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 10, [])
+      end
+
+      it 'should return nil price' do
+        data = nil
+
+        proc { data = subject.get_all_prices }.should_not raise_error
+
+        data.sort_by(&:numeric_id)[8].btc_price.should be_nil
+      end
+    end
+
+    context 'if the quotes info for BTC is not a hash' do
+      before do
+        data = btc_data[0...10]
+        data[8]['quotes']['BTC'] = [0.5]
+        stub_full_ticker('BTC', 0, data)
+      end
+
+      it 'should throw JSONError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+      end
+    end
+
+    context 'if the timestamp field is nil' do
+      before do
+        data = btc_data[0...10]
+        data[7]['last_updated'] = nil
+        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 10, [])
+      end
+
+      it 'should return nil for date' do
+        data = nil
+
+        proc { data = subject.get_all_prices }.should_not raise_error
+
+        data.sort_by(&:numeric_id)[7].last_updated.should be_nil
+      end
+    end
+
+    [:id, :name, :symbol, :website_slug].each do |key|
+      context "when a record object does not include a(n) #{key} key" do
+        before do
+          data = btc_data[0...10]
+          data[3][key] = nil
+          stub_full_ticker('BTC', 0, data)
+        end
+
+        it 'should throw JSONError' do
+          proc { subject.get_all_prices }.should raise_error(CoinTools::JSONError)
+        end
+      end
+    end
+
+    context 'when status 4xx is returned' do
+      before do
+        stub_full_ticker('BTC', 0, nil, status: [400, 'Bad Request'])
+      end
+
+      it 'should throw BadRequestError' do
+        proc { subject.get_all_prices }.should raise_error(CoinTools::BadRequestError, '400 Bad Request')
+      end
+    end
+
+    context 'when status 5xx is returned' do
+      before do
+        stub_full_ticker('BTC', 0, nil, status: [500, 'Internal Server Error'])
+      end
+
+      it 'should throw ServiceUnavailableError' do
+        proc {
+          subject.get_all_prices
+        }.should raise_error(CoinTools::ServiceUnavailableError, '500 Internal Server Error')
+      end
+    end
+
+    context 'with convert_to' do
+      context 'when a correct response is returned' do
+        before do
+          stub_full_ticker('EUR', 0, eur_data[0...100])
+          stub_full_ticker('EUR', 100, eur_data[100...140])
+          stub_full_ticker('EUR', 140, nil, { status: [404, 'Not Found'] })
+        end
+
+        it 'should include converted price in the results' do
+          data = subject.get_all_prices(convert_to: 'EUR')
+
+          data.should be_an(Array)
+          data.length.should == 140
+
+          sorted_json = eur_data[0...140].sort_by { |j| j['rank'] }
+
+          data.each_with_index do |coin, i|
+            json = sorted_json[i]
+            coin.converted_price.should == json['quotes']['EUR']['price']
+          end
+        end
+
+        it 'should not include BTC price' do
+          data = subject.get_all_prices(convert_to: 'EUR')
+
+          data.should be_an(Array)
+
+          data.each do |coin|
+            coin.btc_price.should be_nil
+          end
+        end
+      end
+
+      context 'when a lowercase currency code is passed' do
+        before do
+          stub_full_ticker('EUR', 0, eur_data[0...100])
+          stub_full_ticker('EUR', 100, eur_data[100...140])
+          stub_full_ticker('EUR', 140, nil, { status: [404, 'Not Found'] })
+        end
+
+        it 'should make it uppercase' do
+          data = subject.get_all_prices(convert_to: 'eur')
+
+          data.should be_an(Array)
+          data.length.should == 140
+
+          sorted_json = eur_data[0...140].sort_by { |j| j['rank'] }
+
+          data.each_with_index do |coin, i|
+            json = sorted_json[i]
+            coin.converted_price.should == json['quotes']['EUR']['price']
+          end
+        end
+      end
+
+      context 'when an unknown fiat currency code is passed' do
+        it 'should not make any requests' do
+          stub_request(:any, //)
+
+          subject.get_all_prices(convert_to: 'FBI') rescue nil
+
+          WebMock.should_not have_requested(:get, //)
+        end
+
+        it 'should throw an exception' do
+          proc {
+            subject.get_all_prices(convert_to: 'FBI')
+          }.should raise_error(CoinTools::InvalidFiatCurrencyError)
+        end
+      end
+
+      context 'when converted price is not included' do
+        before do
+          stub_full_ticker('EUR', 0, btc_data[0...60])
+          stub_full_ticker('EUR', 60, nil, { status: [404, 'Not Found'] })
+        end
+
+        it 'should return a nil price' do
+          data = subject.get_all_prices(convert_to: 'EUR')
+
+          data.should be_an(Array)
+          data.length.should == 60
+
+          data.each do |coin|
+            coin.converted_price.should be_nil
+            coin.btc_price.should be_nil
+          end
+        end
+      end
+
+      context 'when converted price quote is not a hash' do
+        before do
+          data = eur_data[0...20]
+          data[7]['quotes']['EUR'] = '6000.0'
+
+          stub_full_ticker('EUR', 0, data)
+        end
+
+        it 'should throw JSONError' do
+          proc { subject.get_all_prices(convert_to: 'EUR') }.should raise_error(CoinTools::JSONError)
+        end
       end
     end
   end

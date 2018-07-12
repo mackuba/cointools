@@ -146,7 +146,7 @@ module CoinTools
       url = URI("#{BASE_URL}/v2/ticker/#{listing.numeric_id}/")
 
       if convert_to
-        url.query = "convert=#{convert_to}"
+        url.query = "convert=#{convert_to.upcase}"
       else
         url.query = "convert=BTC"
       end
@@ -181,7 +181,7 @@ module CoinTools
 
       if convert_to
         validate_fiat_currency(convert_to)
-        url.query += "&convert=#{convert_to}"
+        url.query += "&convert=#{convert_to.upcase}"
       else
         url.query += "&convert=BTC"
       end
@@ -197,8 +197,8 @@ module CoinTools
         case response
         when Net::HTTPSuccess
           json = Utils.parse_json(response.body)
-          raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
-          raise NoDataError.new(response, json['metadata']['error']) if json['metadata']['error']
+          raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
+          raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
           raise JSONError.new(response) unless json['data'].is_a?(Array)
 
           begin
@@ -207,6 +207,7 @@ module CoinTools
             raise JSONError.new(response, e.message)
           end
 
+          break if new_batch.empty?
           yield new_batch if block_given?
 
           coins.concat(new_batch)
