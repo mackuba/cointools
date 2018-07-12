@@ -18,47 +18,101 @@ module CoinTools
       'ZAR'
     ]
 
-    DataPoint = BaseStruct.make(:time, :usd_price, :btc_price, :converted_price)
+    class Listing
+      attr_reader :numeric_id, :name, :symbol, :text_id
 
+      def initialize(json)
+        [:id, :name, :symbol, :website_slug].each do |key|
+          raise ArgumentError.new("Missing #{key} field") unless json[key.to_s]
+        end
 
-    def get_price(coin_name, convert_to: nil)
-      raise InvalidSymbolError if coin_name.to_s.empty?
-
-      url = URI("#{BASE_URL}/v1/ticker/#{coin_name}/")
-
-      if convert_to
-        validate_fiat_currency(convert_to)
-        url += "?convert=#{convert_to}"
+        @numeric_id = json['id']
+        @name = json['name']
+        @symbol = json['symbol']
+        @text_id = json['website_slug']
       end
+    end
+
+    class CoinData < Listing
+      attr_reader :last_updated, :usd_price, :btc_price, :converted_price, :rank, :market_cap
+
+      def initialize(json, convert_to = nil)
+        super(json)
+
+        raise ArgumentError.new('Missing rank field') unless json['rank']
+        raise ArgumentError.new('Invalid rank field') unless json['rank'].is_a?(Integer) && json['rank'] > 0
+        @rank = json['rank']
+
+        quotes = json['quotes']
+        raise ArgumentError.new('Missing quotes field') unless quotes
+        raise ArgumentError.new('Invalid quotes field') unless quotes.is_a?(Hash)
+
+        usd_quote = quotes['USD']
+        raise ArgumentError.new('Missing USD quote info') unless usd_quote
+        raise ArgumentError.new('Invalid USD quote info') unless usd_quote.is_a?(Hash)
+
+        @usd_price = usd_quote['price']&.to_f
+        @market_cap = usd_quote['market_cap']&.to_f
+
+        if convert_to
+          converted_quote = quotes[convert_to.upcase]
+
+          if converted_quote
+            raise ArgumentError.new("Invalid #{convert_to.upcase} quote info") unless converted_quote.is_a?(Hash)
+            @converted_price = converted_quote['price']&.to_f
+          end
+        else
+          btc_quote = quotes['BTC']
+
+          if btc_quote
+            raise ArgumentError.new("Invalid BTC quote info") unless btc_quote.is_a?(Hash)
+            @btc_price = btc_quote['price']&.to_f
+          end
+        end
+
+        timestamp = json['last_updated']
+        @last_updated = Time.at(timestamp) if timestamp
+      end
+    end
+
+    def symbol_map
+      load_listings if @symbol_map.nil?
+      @symbol_map
+    end
+
+    def id_map
+      load_listings if @id_map.nil?
+      @id_map
+    end
+
+    def load_listings
+      url = URI("#{BASE_URL}/v2/listings/")
 
       response = make_request(url)
 
       case response
       when Net::HTTPSuccess
         json = Utils.parse_json(response.body)
-        raise JSONError.new(response) unless json.is_a?(Array)
+        raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
+        raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
+        raise JSONError.new(response) unless json['data'].is_a?(Array)
 
-        record = json[0]
+        @id_map = {}
+        @symbol_map = {}
 
-        usd_price = record['price_usd']&.to_f
-        btc_price = record['price_btc']&.to_f
-        timestamp = Time.at(record['last_updated'].to_i)
+        begin
+          json['data'].each do |record|
+            listing = Listing.new(record)
 
-        raise NoDataError.new(response) unless usd_price && btc_price && record['last_updated']
-
-        if convert_to
-          converted_price = record["price_#{convert_to.downcase}"]&.to_f
-          raise NoDataError.new(response, 'Conversion to chosen fiat currency failed') if converted_price.nil?
+            @id_map[listing.text_id] = listing
+            @symbol_map[listing.symbol] = listing
+          end
+        rescue ArgumentError => e
+          # TODO: JSONError vs. NoDataError? + error class docs
+          raise JSONError.new(response, e.message)
         end
 
-        return DataPoint.new(
-          time: timestamp,
-          usd_price: usd_price,
-          btc_price: btc_price,
-          converted_price: converted_price
-        )
-      when Net::HTTPNotFound
-        raise UnknownCoinError.new(response)
+        json['data'].length
       when Net::HTTPClientError
         raise BadRequestError.new(response)
       else
@@ -66,15 +120,35 @@ module CoinTools
       end
     end
 
+    def get_price(coin_name, convert_to: nil)
+      raise InvalidSymbolError if coin_name.to_s.empty?
+
+      validate_fiat_currency(convert_to) if convert_to
+
+      listing = id_map[coin_name.to_s]
+      raise InvalidSymbolError if listing.nil?
+
+      get_price_for_listing(listing, convert_to: convert_to)
+    end
+
     def get_price_by_symbol(coin_symbol, convert_to: nil)
       raise InvalidSymbolError if coin_symbol.to_s.empty?
 
-      url = URI("#{BASE_URL}/v1/ticker/?limit=0")
-      symbol = coin_symbol.downcase
+      validate_fiat_currency(convert_to) if convert_to
+
+      listing = symbol_map[coin_symbol.to_s]
+      raise InvalidSymbolError if listing.nil?
+
+      get_price_for_listing(listing, convert_to: convert_to)
+    end
+
+    def get_price_for_listing(listing, convert_to: nil)
+      url = URI("#{BASE_URL}/v2/ticker/#{listing.numeric_id}/")
 
       if convert_to
-        validate_fiat_currency(convert_to)
-        url.query += "&convert=#{convert_to}"
+        url.query = "convert=#{convert_to.upcase}"
+      else
+        url.query = "convert=BTC"
       end
 
       response = make_request(url)
@@ -82,28 +156,19 @@ module CoinTools
       case response
       when Net::HTTPSuccess
         json = Utils.parse_json(response.body)
-        raise JSONError.new(response) unless json.is_a?(Array)
+        raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
+        raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
 
-        record = json.detect { |r| r['symbol'].downcase == symbol }
-        raise UnknownCoinError.new(response) if record.nil?
+        record = json['data']
+        raise JSONError.new(response) unless record.is_a?(Hash)
 
-        usd_price = record['price_usd']&.to_f
-        btc_price = record['price_btc']&.to_f
-        timestamp = Time.at(record['last_updated'].to_i)
-
-        raise NoDataError.new(response) unless usd_price && btc_price && timestamp
-
-        if convert_to
-          converted_price = record["price_#{convert_to.downcase}"]&.to_f
-          raise NoDataError.new(response, 'Conversion to chosen fiat currency failed') if converted_price.nil?
+        begin
+          return CoinData.new(record, convert_to)
+        rescue ArgumentError => e
+          raise JSONError.new(response, e.message)
         end
-
-        return DataPoint.new(
-          time: timestamp,
-          usd_price: usd_price,
-          btc_price: btc_price,
-          converted_price: converted_price
-        )
+      when Net::HTTPNotFound
+        raise UnknownCoinError.new(response)
       when Net::HTTPClientError
         raise BadRequestError.new(response)
       else
@@ -115,51 +180,37 @@ module CoinTools
       url = URI("#{BASE_URL}/v2/ticker/?structure=array&sort=id&limit=100")
 
       if convert_to
-        currency = convert_to.upcase
         validate_fiat_currency(convert_to)
-        url.query += "&convert=#{currency}"
+        url.query += "&convert=#{convert_to.upcase}"
       else
         url.query += "&convert=BTC"
       end
 
       start = 0
-      coins = {}
+      coins = []
 
       loop do
         page_url = url.clone
-        page_url.query += "&start=#{start}"
+        page_url.query += "&start=#{coins.length}"
         response = make_request(page_url)
 
         case response
         when Net::HTTPSuccess
           json = Utils.parse_json(response.body)
-          raise JSONError.new(response) unless json.is_a?(Hash) && json['data'] && json['metadata']
-          raise NoDataError.new(response, json['metadata']['error']) if json['metadata']['error']
+          raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
+          raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
+          raise JSONError.new(response) unless json['data'].is_a?(Array)
 
-          json['data'].each do |record|
-            quotes = record['quotes']
-            raise JSONError.new(response, 'Missing quotes field') unless quotes
-
-            id = record['website_slug']
-            raise JSONError.new(response, 'Missing id field') unless id
-
-            usd_price = quotes['USD'] && quotes['USD']['price']&.to_f
-            btc_price = quotes['BTC'] && quotes['BTC']['price']&.to_f
-            timestamp = Time.at(record['last_updated'].to_i)
-
-            if currency
-              converted_price = quotes[currency] && quotes[currency]['price']&.to_f
-            end
-
-            coins[id] = DataPoint.new(
-              time: timestamp,
-              usd_price: usd_price,
-              btc_price: btc_price,
-              converted_price: converted_price
-            )
+          begin
+            new_batch = json['data'].map { |record| CoinData.new(record, convert_to) }
+          rescue ArgumentError => e
+            raise JSONError.new(response, e.message)
           end
 
-          start += json['data'].length
+          break if new_batch.empty?
+          yield new_batch if block_given?
+
+          coins.concat(new_batch)
         when Net::HTTPNotFound
           break
         when Net::HTTPClientError
@@ -169,7 +220,7 @@ module CoinTools
         end
       end
 
-      coins
+      coins.sort_by(&:rank)
     end
 
 

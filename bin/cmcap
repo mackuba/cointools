@@ -81,7 +81,7 @@ begin
   if quiet
     puts price
   else
-    puts "#{symbol&.upcase || coin_name} @ #{result.time || Time.now} ==> #{price} #{unit}"
+    puts "#{symbol&.upcase || coin_name} @ #{result.last_updated || Time.now} ==> #{price} #{unit}"
     puts
   end
 rescue CoinTools::InvalidSymbolError => e

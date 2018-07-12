@@ -87,7 +87,7 @@ Alternatively, you can pass the cryptocurrency's symbol using the `-s` or `--sym
 cmcap -s powr
 ```
 
-However, this operation needs to download a complete ticker for all currencies and scan through the list, so it's recommended to use the name as in the example above.
+However, be aware that coin symbols are not unique on CoinMarketCap - there are at least a few examples of duplicates. In such case, the first coin that matches (probably the older one) will be returned.
 
 By default the price is printed in a verbose format that includes the requested coin symbol and the time of the returned price. Add a `-q/--quiet` option to only print the price as a single number (e.g. to pass it further to another script).
 
@@ -113,17 +113,40 @@ cmc = CoinTools::CoinMarketCap.new
 
 p CoinTools::CoinMarketCap::FIAT_CURRENCIES
 
-ltc = cryptowatch.get_price('litecoin')
+ltc = cmc.get_price('litecoin')
 puts "LTC: #{ltc.usd_price} USD / #{ltc.btc_price} BTC"
 
-xmr = cryptowatch.get_price_by_symbol('xmr')
+xmr = cmc.get_price_by_symbol('xmr')
 puts "XMR: #{xmr.usd_price} USD / #{xmr.btc_price} BTC"
 
-eth = cryptowatch.get_price('ethereum', convert_to: 'EUR')
+eth = cmc.get_price('ethereum', convert_to: 'EUR')
 puts "ETH: #{eth.converted_price} EUR"
 ```
 
-The soft rate limit for the API is 10 requests per minute (for the currently used v1 API).
+The soft rate limit for the API is 30 requests per minute (for API v2).
+
+Note: since in the v2 API specific coin tickers can only be looked up using CoinMarketCap's internal numeric ids (e.g. Ethereum = 1027), both lookup methods available here - by the coin name ("slug") and symbol - have to first download a `/listings` JSON with a mapping of all coins on the site. The result of that call is cached in a `CoinTools::CoinMarketCap` object, so if you do many lookups in code, in one go or over some period of time, it's recommended to reuse the object instead of recreating it each time.
+
+The API only allows one additional currency apart from USD, so if you pass a `convert_to` parameter, `btc_price` will not be returned, only `converted_price`.
+
+
+### Getting all coin prices
+
+You can also download the whole table of 1600+ coins listed on CoinMarketCap using the `get_all_prices` method. The method also takes a `convert_to` parameter, which works as described above. This method has to use paging to download data in batches and currently makes around 16 calls (which takes about half a minute), so do not call it repeatedly or you might go over the rate limit.
+
+You can pass a block to this method to receive each batch of coins as they arrive. Take into account however that coins are not sorted by rank, but by numeric id (or roughly by creation date), so if you want e.g. top 100 coins, you still need to download the whole list. This is mostly intended to let you track progress in some way, e.g.:
+
+```ruby
+require 'cointools/coinmarketcap'
+cmc = CoinTools::CoinMarketCap.new
+
+coins = cmc.get_all_prices { |l| print '.' }
+puts
+
+coins.first(50).each do |c|
+  puts c.symbol.ljust(5) + c.market_cap.to_i.to_s.rjust(15)
+end
+```
 
 
 ## CoinCap
