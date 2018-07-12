@@ -92,16 +92,13 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = Utils.parse_json(response.body)
-        raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
-        raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
-        raise JSONError.new(response) unless json['data'].is_a?(Array)
+        data = parse_response(response, Array)
 
         @id_map = {}
         @symbol_map = {}
 
         begin
-          json['data'].each do |record|
+          data.each do |record|
             listing = Listing.new(record)
 
             @id_map[listing.text_id] = listing
@@ -112,7 +109,7 @@ module CoinTools
           raise JSONError.new(response, e.message)
         end
 
-        json['data'].length
+        data.length
       when Net::HTTPClientError
         raise BadRequestError.new(response)
       else
@@ -155,12 +152,7 @@ module CoinTools
 
       case response
       when Net::HTTPSuccess
-        json = Utils.parse_json(response.body)
-        raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
-        raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
-
-        record = json['data']
-        raise JSONError.new(response) unless record.is_a?(Hash)
+        record = parse_response(response, Hash)
 
         begin
           return CoinData.new(record, convert_to)
@@ -176,7 +168,7 @@ module CoinTools
       end
     end
 
-    def get_all_prices(convert_to: nil)
+    def get_all_prices(convert_to: nil, &block)
       url = URI("#{BASE_URL}/v2/ticker/?structure=array&sort=id&limit=100")
 
       if convert_to
@@ -190,33 +182,12 @@ module CoinTools
       coins = []
 
       loop do
-        page_url = url.clone
-        page_url.query += "&start=#{coins.length}"
-        response = make_request(page_url)
+        new_batch = fetch_full_ticker_page(url, convert_to, coins.length, &block)
 
-        case response
-        when Net::HTTPSuccess
-          json = Utils.parse_json(response.body)
-          raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
-          raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
-          raise JSONError.new(response) unless json['data'].is_a?(Array)
-
-          begin
-            new_batch = json['data'].map { |record| CoinData.new(record, convert_to) }
-          rescue ArgumentError => e
-            raise JSONError.new(response, e.message)
-          end
-
-          break if new_batch.empty?
-          yield new_batch if block_given?
-
-          coins.concat(new_batch)
-        when Net::HTTPNotFound
+        if new_batch.empty?
           break
-        when Net::HTTPClientError
-          raise BadRequestError.new(response)
         else
-          raise ServiceUnavailableError.new(response)
+          coins.concat(new_batch)
         end
       end
 
@@ -226,10 +197,45 @@ module CoinTools
 
     private
 
-    def validate_fiat_currency(fiat_currency)
-      unless FIAT_CURRENCIES.include?(fiat_currency.upcase)
-        raise InvalidFiatCurrencyError
+    def fetch_full_ticker_page(base_url, convert_to, start)
+      url = base_url.clone
+      url.query += "&start=#{start}"
+      response = make_request(url)
+
+      case response
+      when Net::HTTPSuccess
+        data = parse_response(response, Array)
+
+        begin
+          new_batch = data.map { |record| CoinData.new(record, convert_to) }
+        rescue ArgumentError => e
+          raise JSONError.new(response, e.message)
+        end
+
+        yield new_batch if block_given? && !new_batch.empty?
+
+        new_batch
+      when Net::HTTPNotFound
+        []
+      when Net::HTTPClientError
+        raise BadRequestError.new(response)
+      else
+        raise ServiceUnavailableError.new(response)
       end
+    end
+
+    def validate_fiat_currency(fiat_currency)
+      raise InvalidFiatCurrencyError unless FIAT_CURRENCIES.include?(fiat_currency.upcase)
+    end
+
+    def parse_response(response, expected_data_type)
+      json = Utils.parse_json(response.body)
+
+      raise JSONError.new(response) unless json.is_a?(Hash) && json['metadata']
+      raise BadRequestError.new(response, json['metadata']['error']) if json['metadata']['error']
+      raise JSONError.new(response) unless json['data'].is_a?(expected_data_type)
+
+      json['data']
     end
 
     def make_request(url)
