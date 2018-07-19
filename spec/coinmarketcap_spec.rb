@@ -859,10 +859,10 @@ describe CoinTools::CoinMarketCap do
 
     context 'when all pages return data correctly' do
       before do
-        stub_full_ticker('BTC', 0, btc_data[0...100])
-        stub_full_ticker('BTC', 100, btc_data[100...200])
-        stub_full_ticker('BTC', 200, btc_data[200...250])
-        stub_full_ticker('BTC', 250, nil, { status: [404, 'Not Found'] })
+        stub_full_ticker('BTC', 1, btc_data[0...100])
+        stub_full_ticker('BTC', 101, btc_data[100...200])
+        stub_full_ticker('BTC', 201, btc_data[200...250])
+        stub_full_ticker('BTC', 251, nil, { status: [404, 'Not Found'] })
       end
 
       it 'should return a list of all coins, sorted by rank' do
@@ -888,29 +888,29 @@ describe CoinTools::CoinMarketCap do
     end
 
     it 'should send user agent headers' do
-      stub_full_ticker('BTC', 0, btc_data[0...10])
-      stub_full_ticker('BTC', 10, nil, { status: [404, 'Not Found'] })
+      stub_full_ticker('BTC', 1, btc_data[0...10])
+      stub_full_ticker('BTC', 11, nil, { status: [404, 'Not Found'] })
 
       subject.get_all_prices
 
-      WebMock.should have_requested(:get, full_ticker_url('BTC', 0)).with(headers: user_agent_header)
-      WebMock.should have_requested(:get, full_ticker_url('BTC', 10)).with(headers: user_agent_header)
+      WebMock.should have_requested(:get, full_ticker_url('BTC', 1)).with(headers: user_agent_header)
+      WebMock.should have_requested(:get, full_ticker_url('BTC', 11)).with(headers: user_agent_header)
     end
 
     it 'should not use the unsafe method JSON.load' do
       Exploit.should_not_receive(:json_creatable?)
 
-      stub_full_ticker('BTC', 0, [btc_data[0].merge(json_class: 'Exploit')])
-      stub_full_ticker('BTC', 1, nil, { status: [404, 'Not Found'] })
+      stub_full_ticker('BTC', 1, [btc_data[0].merge(json_class: 'Exploit')])
+      stub_full_ticker('BTC', 2, nil, { status: [404, 'Not Found'] })
 
       subject.get_all_prices
     end
 
     context 'if an empty page is returned' do
       before do
-        stub_full_ticker('BTC', 0, btc_data[0...100])
-        stub_full_ticker('BTC', 100, btc_data[100...200])
-        stub_full_ticker('BTC', 200, []).then.to_raise(StandardError.new('unexpected second request'))
+        stub_full_ticker('BTC', 1, btc_data[0...100])
+        stub_full_ticker('BTC', 101, btc_data[100...200])
+        stub_full_ticker('BTC', 201, []).then.to_raise(StandardError.new('unexpected second request'))
       end
 
       it 'should stop downloading and return the data' do
@@ -925,9 +925,9 @@ describe CoinTools::CoinMarketCap do
 
     context 'if a block is passed' do
       before do
-        stub_full_ticker('BTC', 0, btc_data[0...100])
-        stub_full_ticker('BTC', 100, btc_data[100...120])
-        stub_full_ticker('BTC', 120, nil, { status: [404, 'Not Found'] })
+        stub_full_ticker('BTC', 1, btc_data[0...100])
+        stub_full_ticker('BTC', 101, btc_data[100...120])
+        stub_full_ticker('BTC', 121, nil, { status: [404, 'Not Found'] })
       end
 
       it 'should yield each batch separately to the block' do
@@ -944,7 +944,7 @@ describe CoinTools::CoinMarketCap do
 
     context 'when the json object is not a hash' do
       before do
-        stub_full_ticker('BTC', 0, nil, body: json([{}]))
+        stub_full_ticker('BTC', 1, nil, body: json([{}]))
       end
 
       it 'should throw JSONError' do
@@ -954,7 +954,7 @@ describe CoinTools::CoinMarketCap do
 
     context 'when the json object does not include a data field' do
       before do
-        stub_full_ticker('BTC', 0, nil, body: json({
+        stub_full_ticker('BTC', 1, nil, body: json({
           metadata: {}
         }))
       end
@@ -966,7 +966,7 @@ describe CoinTools::CoinMarketCap do
 
     context 'when the json object does not include a metadata field' do
       before do
-        stub_full_ticker('BTC', 0, nil, body: json({
+        stub_full_ticker('BTC', 1, nil, body: json({
           data: [btc_data[0]],
           metadata: nil
         }))
@@ -979,7 +979,7 @@ describe CoinTools::CoinMarketCap do
 
     context 'when the data object is not an array' do
       before do
-        stub_full_ticker('BTC', 0, btc_data[0])
+        stub_full_ticker('BTC', 1, btc_data[0])
       end
 
       it 'should throw JSONError' do
@@ -989,7 +989,7 @@ describe CoinTools::CoinMarketCap do
 
     context 'when the metadata field includes an error' do
       before do
-        stub_full_ticker('BTC', 0, nil, body: json({
+        stub_full_ticker('BTC', 1, nil, body: json({
           data: nil,
           metadata: { error: 'funds are not safu' }
         }))
@@ -1004,7 +1004,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[6]['rank'] = nil
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1016,7 +1016,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[8]['rank'] = 'one'
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1028,7 +1028,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[2]['rank'] = -5
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1040,7 +1040,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[2].delete('quotes')
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1052,7 +1052,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[2]['quotes'] = [8000, 0.5]
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1064,7 +1064,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[8]['quotes']['USD'] = nil
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1076,7 +1076,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[8]['quotes']['USD'] = [8000, 0.5]
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1088,8 +1088,8 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[8]['quotes']['BTC'] = nil
-        stub_full_ticker('BTC', 0, data)
-        stub_full_ticker('BTC', 10, [])
+        stub_full_ticker('BTC', 1, data)
+        stub_full_ticker('BTC', 11, [])
       end
 
       it 'should return nil price' do
@@ -1105,7 +1105,7 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[8]['quotes']['BTC'] = [0.5]
-        stub_full_ticker('BTC', 0, data)
+        stub_full_ticker('BTC', 1, data)
       end
 
       it 'should throw JSONError' do
@@ -1117,8 +1117,8 @@ describe CoinTools::CoinMarketCap do
       before do
         data = btc_data[0...10]
         data[7]['last_updated'] = nil
-        stub_full_ticker('BTC', 0, data)
-        stub_full_ticker('BTC', 10, [])
+        stub_full_ticker('BTC', 1, data)
+        stub_full_ticker('BTC', 11, [])
       end
 
       it 'should return nil for date' do
@@ -1135,7 +1135,7 @@ describe CoinTools::CoinMarketCap do
         before do
           data = btc_data[0...10]
           data[3][key] = nil
-          stub_full_ticker('BTC', 0, data)
+          stub_full_ticker('BTC', 1, data)
         end
 
         it 'should throw JSONError' do
@@ -1146,7 +1146,7 @@ describe CoinTools::CoinMarketCap do
 
     context 'when status 4xx is returned' do
       before do
-        stub_full_ticker('BTC', 0, nil, status: [400, 'Bad Request'])
+        stub_full_ticker('BTC', 1, nil, status: [400, 'Bad Request'])
       end
 
       it 'should throw BadRequestError' do
@@ -1156,7 +1156,7 @@ describe CoinTools::CoinMarketCap do
 
     context 'when status 5xx is returned' do
       before do
-        stub_full_ticker('BTC', 0, nil, status: [500, 'Internal Server Error'])
+        stub_full_ticker('BTC', 1, nil, status: [500, 'Internal Server Error'])
       end
 
       it 'should throw ServiceUnavailableError' do
@@ -1169,9 +1169,9 @@ describe CoinTools::CoinMarketCap do
     context 'with convert_to' do
       context 'when a correct response is returned' do
         before do
-          stub_full_ticker('EUR', 0, eur_data[0...100])
-          stub_full_ticker('EUR', 100, eur_data[100...140])
-          stub_full_ticker('EUR', 140, nil, { status: [404, 'Not Found'] })
+          stub_full_ticker('EUR', 1, eur_data[0...100])
+          stub_full_ticker('EUR', 101, eur_data[100...140])
+          stub_full_ticker('EUR', 141, nil, { status: [404, 'Not Found'] })
         end
 
         it 'should include converted price in the results' do
@@ -1201,9 +1201,9 @@ describe CoinTools::CoinMarketCap do
 
       context 'when a lowercase currency code is passed' do
         before do
-          stub_full_ticker('EUR', 0, eur_data[0...100])
-          stub_full_ticker('EUR', 100, eur_data[100...140])
-          stub_full_ticker('EUR', 140, nil, { status: [404, 'Not Found'] })
+          stub_full_ticker('EUR', 1, eur_data[0...100])
+          stub_full_ticker('EUR', 101, eur_data[100...140])
+          stub_full_ticker('EUR', 141, nil, { status: [404, 'Not Found'] })
         end
 
         it 'should make it uppercase' do
@@ -1239,8 +1239,8 @@ describe CoinTools::CoinMarketCap do
 
       context 'when converted price is not included' do
         before do
-          stub_full_ticker('EUR', 0, btc_data[0...60])
-          stub_full_ticker('EUR', 60, nil, { status: [404, 'Not Found'] })
+          stub_full_ticker('EUR', 1, btc_data[0...60])
+          stub_full_ticker('EUR', 61, nil, { status: [404, 'Not Found'] })
         end
 
         it 'should return a nil price' do
@@ -1261,7 +1261,7 @@ describe CoinTools::CoinMarketCap do
           data = eur_data[0...20]
           data[7]['quotes']['EUR'] = '6000.0'
 
-          stub_full_ticker('EUR', 0, data)
+          stub_full_ticker('EUR', 1, data)
         end
 
         it 'should throw JSONError' do

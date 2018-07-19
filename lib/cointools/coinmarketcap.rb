@@ -177,11 +177,10 @@ module CoinTools
         url.query += "&convert=BTC"
       end
 
-      start = 0
       coins = []
 
       loop do
-        new_batch = fetch_full_ticker_page(url, convert_to, coins.length, &block)
+        new_batch = fetch_full_ticker_page(url, convert_to, coins.length + 1, &block)
 
         if new_batch.empty?
           break
