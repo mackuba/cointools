@@ -1,3 +1,7 @@
+#### Version 0.5.1 (19.07.2018)
+
+* fixed bug in `CoinMarketCap#get_all_prices` that caused duplicated entries
+
 #### Version 0.5.0 (12.07.2018)
 
 * switched to CoinMarketCap API v2, CMC's `get_price` and `get_price_by_symbol` calls now return data like coin name/symbol, rank and market cap
